@@ -1,9 +1,21 @@
 const mongoose = require("mongoose");
 
 const librarySchema = new mongoose.Schema({
-  name: String,
-  ownerName: String,
-  phone: String,
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  ownerName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  phone: {
+    type: String,
+    required: true,
+    trim: true
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

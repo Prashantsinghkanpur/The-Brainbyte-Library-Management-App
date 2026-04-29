@@ -1,21 +1,15 @@
 const router = require("express").Router();
-
-// import controller
+const auth = require("../middleware/auth");
 const {
   addStudent,
-  getStudents
+  getStudents,
+  getStudentById,
+  updateStudent
 } = require("../controllers/studentController");
 
-// import auth middleware 🔐
-const auth = require("../middleware/auth");
-
-// PROTECTED ROUTES
-// only logged-in user can access
-
-// ADD STUDENT
 router.post("/", auth, addStudent);
-
-// GET ALL STUDENTS
 router.get("/", auth, getStudents);
+router.get("/:id", auth, getStudentById);
+router.patch("/:id", auth, updateStudent);
 
 module.exports = router;
