@@ -168,7 +168,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="stack-card tone-teal">
+      <section className="stack-card tone-teal ">
         <div>
           <strong className="subscription-title">You are {subscriptionPlan}</strong>
           <p>
