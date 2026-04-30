@@ -11,6 +11,9 @@ const initialForm = {
   phone: ""
 };
 
+const inputClass =
+  "w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100";
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -39,67 +42,63 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="auth-layout">
-      <section className="auth-panel">
-        <div>
-          <div className="brand-mark">BB</div>
-          <h1>Create the operating system for your study hall.</h1>
-          <p>Start with your library profile, then we’ll help you organize students, seats, and finances.</p>
+    <div className="grid min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
+      <section className="flex min-h-[30vh] flex-col justify-between gap-6 bg-gradient-to-b from-slate-200 to-slate-100 p-5 sm:min-h-[34vh] sm:p-6 lg:min-h-screen lg:p-14">
+        <div className="min-w-0">
+          <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-sky-500 font-extrabold text-white shadow-lg shadow-teal-700/15 sm:mb-6">BB</div>
+          <h1 className="m-0 max-w-xl break-words text-3xl font-extrabold leading-tight min-[380px]:text-4xl">Create the operating system for your study hall.</h1>
+          <p className="mt-4 max-w-xl break-words text-sm text-slate-600 sm:text-base">Start with your library profile, then we'll help you organize students, seats, and finances.</p>
         </div>
-        <div>
-          <p className="eyebrow">Best fit for</p>
-          <p>Owners who want fewer manual registers and faster visibility into dues, occupancy, and revenue.</p>
+        <div className="min-w-0">
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Best fit for</p>
+          <p className="m-0 mt-2 max-w-xl break-words text-sm text-slate-600 sm:text-base">Owners who want fewer manual registers and faster visibility into dues, occupancy, and revenue.</p>
         </div>
       </section>
 
-      <section className="auth-card-wrap">
-        <form className="auth-card form-grid" onSubmit={handleSubmit}>
-          <div className="section-title">
-            <h1>Register library</h1>
-            <p className="section-subtitle">This creates both the library workspace and the owner account.</p>
+      <section className="flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <form className="grid w-full max-w-xl gap-4 rounded-[1.5rem] border border-white/60 bg-white/90 p-4 shadow-2xl shadow-slate-400/25 backdrop-blur sm:rounded-[2rem] sm:p-6" onSubmit={handleSubmit}>
+          <div className="grid gap-1">
+            <h1 className="m-0 text-3xl font-extrabold">Register library</h1>
+            <p className="m-0 break-words text-sm text-slate-500 sm:text-base">This creates both the library workspace and the owner account.</p>
           </div>
 
-          {error ? <div className="message error">{error}</div> : null}
+          {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
 
-          <div className="field-grid two-col">
-            <div className="field">
-              <label htmlFor="name">Owner name</label>
-              <input id="name" name="name" value={form.name} onChange={handleChange} required />
+          <div className="grid gap-4 min-[520px]:grid-cols-2">
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="name">Owner name</label>
+              <input className={inputClass} id="name" name="name" value={form.name} onChange={handleChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="libraryName">Library name</label>
-              <input id="libraryName" name="libraryName" value={form.libraryName} onChange={handleChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="libraryName">Library name</label>
+              <input className={inputClass} id="libraryName" name="libraryName" value={form.libraryName} onChange={handleChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="email">Email</label>
+              <input className={inputClass} id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="phone">Phone</label>
-              <input id="phone" name="phone" value={form.phone} onChange={handleChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="phone">Phone</label>
+              <input className={inputClass} id="phone" name="phone" value={form.phone} onChange={handleChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                required
-              />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="password">Password</label>
+              <input className={inputClass} id="password" name="password" type="password" value={form.password} onChange={handleChange} required />
             </div>
           </div>
 
-          <button className="primary-button" disabled={isSubmitting} type="submit">
+          <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Creating..." : "Create account"}
           </button>
 
-          <p className="muted">
-            Already have an account? <Link to="/login">Back to login</Link>
+          <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
+            Already have an account? <Link className="font-bold text-teal-700" to="/login">Back to login</Link>
           </p>
         </form>
       </section>
     </div>
   );
 }
+
+
+

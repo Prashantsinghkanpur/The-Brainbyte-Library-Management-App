@@ -189,118 +189,118 @@ export default function StudentsPage() {
   };
 
   return (
-    <div className="page-content">
-      <section className="screen-header">
-        <div>
-          <p className="screen-kicker">MANAGEMENT</p>
-          <h1 className="screen-title">Directory</h1>
+    <div className="grid gap-5 sm:gap-6">
+      <section className="flex items-start justify-between gap-3 pt-2 sm:pt-4">
+        <div className="min-w-0">
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MANAGEMENT</p>
+          <h1 className="m-0 mt-1 text-[2.7rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Directory</h1>
         </div>
-        <div className="count-chip">
-          <strong>{students.length}</strong>
-          <span>Profiles</span>
+        <div className="grid min-h-16 min-w-16 shrink-0 place-items-center rounded-3xl bg-teal-50 p-3 text-center text-teal-700 sm:min-h-20 sm:min-w-20">
+          <strong className="text-2xl leading-none sm:text-3xl">{students.length}</strong>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider sm:text-xs">Profiles</span>
         </div>
       </section>
 
-      {error ? <div className="message error">{error}</div> : null}
-      {success ? <div className="message success">{success}</div> : null}
+      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
+      {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
       {viewingStudent ? (
-        <section className="sheet-card student-detail-card">
-          <div className="section-heading-row">
-            <div>
-              <p className="screen-kicker">MEMBER #{viewingStudent.memberId}</p>
-              <h3>{viewingStudent.name}</h3>
+        <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER #{viewingStudent.memberId}</p>
+              <h3 className="m-0 mt-1 break-words text-2xl font-extrabold">{viewingStudent.name}</h3>
             </div>
-            <button className="ghost-button" onClick={() => setViewingStudent(null)} type="button">
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => setViewingStudent(null)} type="button">
               Close
             </button>
           </div>
 
-          <div className="detail-hero">
-            <div className="list-avatar large">{viewingStudent.name.slice(0, 2).toUpperCase()}</div>
-            <div>
+          <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:gap-4">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-sky-600 text-xl font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{viewingStudent.name.slice(0, 2).toUpperCase()}</div>
+            <div className="min-w-0">
               <strong>{viewingStudent.plan}</strong>
-              <p className="section-subtitle">
+              <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
                 {viewingStudent.hallName} | Seat #{viewingStudent.seatNumber} | {viewingStudent.shift}
               </p>
-              <div className="meta-row">
-                <span className={`tag ${viewingStudent.status.toLowerCase()}`}>{viewingStudent.status}</span>
-                <span className="tiny-chip">{formatCurrency(viewingStudent.feeAmount)}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">{viewingStudent.status}</span>
+                <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{formatCurrency(viewingStudent.feeAmount)}</span>
               </div>
             </div>
           </div>
 
-          <div className="detail-grid">
-            <div className="info-pill">
-              <span className="eyebrow">Phone</span>
-              <p>{viewingStudent.phone}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.phone}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Plan</span>
-              <p>{viewingStudent.plan}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Plan</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.plan}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Fee Amount</span>
-              <p>{formatCurrency(viewingStudent.feeAmount)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Fee Amount</span>
+              <p className="m-0 mt-1 break-words">{formatCurrency(viewingStudent.feeAmount)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Seat</span>
-              <p>{viewingStudent.hallName} | #{viewingStudent.seatNumber}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.hallName} | #{viewingStudent.seatNumber}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Shift</span>
-              <p>{viewingStudent.shift}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Shift</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.shift}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Status</span>
-              <p>{viewingStudent.status}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.status}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Joined Date</span>
-              <p>{formatDate(viewingStudent.joinedDate)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined Date</span>
+              <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.joinedDate)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Membership Start</span>
-              <p>{formatDate(viewingStudent.membershipStartDate)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Start</span>
+              <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.membershipStartDate)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Paid Till</span>
-              <p>{formatDate(viewingStudent.paidTill)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Paid Till</span>
+              <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.paidTill)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Created</span>
-              <p>{formatDate(viewingStudent.createdAt)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Created</span>
+              <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.createdAt)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">Last Updated</span>
-              <p>{formatDate(viewingStudent.updatedAt)}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Last Updated</span>
+              <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.updatedAt)}</p>
             </div>
-            <div className="info-pill">
-              <span className="eyebrow">System ID</span>
-              <p>{viewingStudent._id}</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">System ID</span>
+              <p className="m-0 mt-1 break-all">{viewingStudent._id}</p>
             </div>
           </div>
 
-          <div className="info-pill full-width-detail">
-            <span className="eyebrow">Notes</span>
-            <p>{viewingStudent.notes || "No notes added."}</p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-4">
+            <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Notes</span>
+            <p className="m-0 mt-1 break-words">{viewingStudent.notes || "No notes added."}</p>
           </div>
 
-          <div className="actions-row">
-            <button className="primary-button" onClick={() => handleEdit(viewingStudent)} type="button">
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => handleEdit(viewingStudent)} type="button">
               Edit Student
             </button>
-            <button className="ghost-button" onClick={() => setViewingStudent(null)} type="button">
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => setViewingStudent(null)} type="button">
               Back to List
             </button>
           </div>
         </section>
       ) : null}
 
-      <section className="stack-card">
+      <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <form onSubmit={handleSearchSubmit}>
           <input
-            className="search-input mobile-search"
+            className="min-h-14 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-lg outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
             name="search"
             placeholder="Search by name or number..."
             value={filters.search}
@@ -308,18 +308,18 @@ export default function StudentsPage() {
           />
         </form>
 
-        <div className="stack-section">
-          <div className="chip-row">
+        <div className="grid gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className={!filters.shift ? "filter-chip active" : "filter-chip"}
+              className={!filters.shift ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
               onClick={() => handleFilterChange({ target: { name: "shift", value: "" } })}
             >
               All Shifts
             </button>
             <button
               type="button"
-              className={filters.shift === "FULL_DAY" ? "filter-chip active" : "filter-chip"}
+              className={filters.shift === "FULL_DAY" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
               onClick={() => handleFilterChange({ target: { name: "shift", value: "FULL_DAY" } })}
             >
               Full Day
@@ -327,31 +327,31 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        <div className="chip-row scrollable">
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
           <button
             type="button"
-            className={filters.sort === "recent" ? "filter-chip active" : "filter-chip"}
+            className={filters.sort === "recent" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
             onClick={() => handleFilterChange({ target: { name: "sort", value: "recent" } })}
           >
             Recent
           </button>
           <button
             type="button"
-            className={filters.paymentStatus === "PAID" ? "filter-chip active" : "filter-chip"}
+            className={filters.paymentStatus === "PAID" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
             onClick={() => handleFilterChange({ target: { name: "paymentStatus", value: "PAID" } })}
           >
             Paid
           </button>
           <button
             type="button"
-            className={filters.paymentStatus === "DUE" ? "filter-chip active" : "filter-chip"}
+            className={filters.paymentStatus === "DUE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
             onClick={() => handleFilterChange({ target: { name: "paymentStatus", value: "DUE" } })}
           >
             Dues
           </button>
           <button
             type="button"
-            className={filters.status === "ACTIVE" ? "filter-chip active" : "filter-chip"}
+            className={filters.status === "ACTIVE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
             onClick={() => handleFilterChange({ target: { name: "status", value: "ACTIVE" } })}
           >
             Active
@@ -359,157 +359,157 @@ export default function StudentsPage() {
         </div>
       </section>
 
-      <section className="sheet-card">
-        <div className="section-heading-row">
-          <h3>Profiles</h3>
-          <button className="floating-action" onClick={resetForm} type="button">
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h3 className="m-0 text-2xl font-extrabold">Profiles</h3>
+          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={resetForm} type="button">
             New Member
           </button>
         </div>
 
-        <div className="student-list">
+        <div className="grid gap-4">
           {students.map((student) => {
             const actions = getStudentMessageActions(student);
 
             return (
-              <article className="directory-card" key={student._id}>
-                <div className="directory-top">
-                  <div className="list-avatar large">{student.name.slice(0, 2).toUpperCase()}</div>
-                  <div className="directory-name">
-                    <strong>{student.name}</strong>
-                    <p className="section-subtitle">MEMBER ID: #{student.memberId}</p>
+              <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={student._id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-600 text-lg font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{student.name.slice(0, 2).toUpperCase()}</div>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block break-words leading-tight">{student.name}</strong>
+                    <p className="m-0 mt-1 text-xs text-slate-500 sm:text-sm">MEMBER ID: #{student.memberId}</p>
                   </div>
-                  <span className={`tag ${student.status.toLowerCase()}`}>{student.status}</span>
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-2 text-[11px] font-extrabold text-emerald-700 sm:text-xs">{student.status}</span>
                 </div>
 
-                <div className="directory-grid">
-                  <div className="info-pill">
-                    <span className="eyebrow">Phone</span>
-                    <p>{student.phone}</p>
+                <div className="grid gap-3 min-[430px]:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
+                    <p className="m-0 mt-1 break-words">{student.phone}</p>
                   </div>
-                  <div className="info-pill">
-                    <span className="eyebrow">Status</span>
-                    <p>{student.status}</p>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
+                    <p className="m-0 mt-1 break-words">{student.status}</p>
                   </div>
-                  <div className="info-pill">
-                    <span className="eyebrow">Joined</span>
-                    <p>{formatDate(student.joinedDate)}</p>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
+                    <p className="m-0 mt-1 break-words">{formatDate(student.joinedDate)}</p>
                   </div>
-                  <div className="info-pill">
-                    <span className="eyebrow">Seat</span>
-                    <p>{student.hallName} • #{student.seatNumber}</p>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat</span>
+                    <p className="m-0 mt-1 break-words">{student.hallName} - #{student.seatNumber}</p>
                   </div>
                 </div>
 
-                <div className="validity-card">
-                  <div>
-                    <span className="eyebrow">Membership Validity</span>
-                    <p>
+                <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 min-[430px]:flex min-[430px]:items-center min-[430px]:justify-between">
+                  <div className="min-w-0">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Validity</span>
+                    <p className="m-0 mt-1 break-words">
                       {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
                     </p>
                   </div>
-                  <button className="floating-action" onClick={() => handleEdit(student)} type="button">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-5 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5" onClick={() => handleEdit(student)} type="button">
                     Edit
                   </button>
                 </div>
 
-                <div className="meta-row">
-                  <span className="tiny-chip">{student.shift}</span>
-                  <span className="tiny-chip">{formatCurrency(student.feeAmount)}</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{student.shift}</span>
+                  <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{formatCurrency(student.feeAmount)}</span>
                 </div>
 
-                <div className="message-actions">
-                  <button className="secondary-button" disabled={loadingStudentDetail} onClick={() => handleView(student)} type="button">
+                <div className="grid gap-2 min-[430px]:grid-cols-2 lg:grid-cols-3">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" disabled={loadingStudentDetail} onClick={() => handleView(student)} type="button">
                     {loadingStudentDetail ? "Opening..." : "View"}
                   </button>
-                  <a className="secondary-button" href={actions.welcomeLinks.whatsapp} target="_blank" rel="noreferrer">
+                  <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.welcomeLinks.whatsapp} target="_blank" rel="noreferrer">
                     Welcome WA
                   </a>
-                  <a className="secondary-button" href={actions.reminderLinks.whatsapp} target="_blank" rel="noreferrer">
+                  <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.reminderLinks.whatsapp} target="_blank" rel="noreferrer">
                     Reminder WA
                   </a>
-                  <a className="ghost-button" href={actions.welcomeLinks.sms}>
+                  <a className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" href={actions.welcomeLinks.sms}>
                     Welcome SMS
                   </a>
-                  <a className="ghost-button" href={actions.reminderLinks.sms}>
+                  <a className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" href={actions.reminderLinks.sms}>
                     Reminder SMS
                   </a>
-                  <button className="ghost-button" onClick={() => handleCopyMessage(student, "welcome")} type="button">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleCopyMessage(student, "welcome")} type="button">
                     {copiedId === `${student._id}-welcome` ? "Copied" : "Copy Welcome"}
                   </button>
-                  <button className="ghost-button" onClick={() => handleCopyMessage(student, "reminder")} type="button">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleCopyMessage(student, "reminder")} type="button">
                     {copiedId === `${student._id}-reminder` ? "Copied" : "Copy Reminder"}
                   </button>
                 </div>
               </article>
             );
           })}
-          {!loading && students.length === 0 ? <div className="empty-state">No students found for the current filters.</div> : null}
+          {!loading && students.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No students found for the current filters.</div> : null}
         </div>
       </section>
 
-      <section className="sheet-card">
-        <div className="section-heading-row">
-          <h3>{editingId ? "Edit Student" : "Add Student"}</h3>
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h3 className="m-0 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
         </div>
 
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <div className="field-grid two-col">
-            <div className="field">
-              <label htmlFor="student-name">Name</label>
-              <input id="student-name" name="name" value={form.name} onChange={handleFormChange} required />
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-4 min-[520px]:grid-cols-2">
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-name">Name</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-name" name="name" value={form.name} onChange={handleFormChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="student-phone">Phone</label>
-              <input id="student-phone" name="phone" value={form.phone} onChange={handleFormChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-phone">Phone</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-phone" name="phone" value={form.phone} onChange={handleFormChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="student-seat">Seat Number</label>
-              <input id="student-seat" name="seatNumber" type="number" min="1" value={form.seatNumber} onChange={handleFormChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-seat">Seat Number</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-seat" name="seatNumber" type="number" min="1" value={form.seatNumber} onChange={handleFormChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="student-hall">Hall Name</label>
-              <input id="student-hall" name="hallName" list="hall-options" value={form.hallName} onChange={handleFormChange} />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-hall">Hall Name</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-hall" name="hallName" list="hall-options" value={form.hallName} onChange={handleFormChange} />
               <datalist id="hall-options">
                 {halls.map((hall) => (
                   <option key={hall._id} value={hall.name} />
                 ))}
               </datalist>
             </div>
-            <div className="field">
-              <label htmlFor="student-plan">Plan</label>
-              <input id="student-plan" name="plan" value={form.plan} onChange={handleFormChange} required />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-plan">Plan</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-plan" name="plan" value={form.plan} onChange={handleFormChange} required />
             </div>
-            <div className="field">
-              <label htmlFor="student-fee">Fee Amount</label>
-              <input id="student-fee" name="feeAmount" type="number" min="0" value={form.feeAmount} onChange={handleFormChange} />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-fee">Fee Amount</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-fee" name="feeAmount" type="number" min="0" value={form.feeAmount} onChange={handleFormChange} />
             </div>
-            <div className="field">
-              <label htmlFor="student-shift">Shift</label>
-              <select id="student-shift" name="shift" value={form.shift} onChange={handleFormChange}>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-shift">Shift</label>
+              <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-shift" name="shift" value={form.shift} onChange={handleFormChange}>
                 <option value="FULL_DAY">Full Day</option>
                 <option value="MORNING">Morning</option>
                 <option value="EVENING">Evening</option>
                 <option value="CUSTOM">Custom</option>
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="student-paidTill">Paid Till</label>
-              <input id="student-paidTill" name="paidTill" type="date" value={form.paidTill} onChange={handleFormChange} />
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-paidTill">Paid Till</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-paidTill" name="paidTill" type="date" value={form.paidTill} onChange={handleFormChange} />
             </div>
           </div>
 
-          <div className="field">
-            <label htmlFor="student-notes">Notes</label>
-            <textarea id="student-notes" name="notes" value={form.notes} onChange={handleFormChange} />
+          <div className="grid gap-2">
+            <label className="font-semibold text-slate-600" htmlFor="student-notes">Notes</label>
+            <textarea className="min-h-28 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-notes" name="notes" value={form.notes} onChange={handleFormChange} />
           </div>
 
-          <div className="actions-row">
-            <button className="primary-button" disabled={submitting} type="submit">
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={submitting} type="submit">
               {submitting ? "Saving..." : editingId ? "Update Student" : "Add Student"}
             </button>
             {editingId ? (
-              <button className="ghost-button" onClick={resetForm} type="button">
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={resetForm} type="button">
                 Cancel
               </button>
             ) : null}
@@ -519,3 +519,9 @@ export default function StudentsPage() {
     </div>
   );
 }
+
+
+
+
+
+

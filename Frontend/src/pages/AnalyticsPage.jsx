@@ -82,28 +82,28 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <div className="page-content">
-      <section className="screen-header">
-        <div>
-          <p className="screen-kicker">FINANCIAL</p>
-          <h1 className="screen-title">Analytics</h1>
+    <div className="grid gap-5 sm:gap-6">
+      <section className="flex items-start justify-between gap-3 pt-2 sm:pt-4">
+        <div className="min-w-0">
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">FINANCIAL</p>
+          <h1 className="m-0 mt-1 text-[2.35rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Analytics</h1>
         </div>
-        <Link className="floating-action secondary" to="/expenses">
+        <Link className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-900 shadow-lg shadow-slate-300/30 transition hover:-translate-y-0.5 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" to="/expenses">
           Expense
         </Link>
       </section>
 
-      {error ? <div className="message error">{error}</div> : null}
+      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
 
-      <section className="stack-card">
-        <div className="stack-section">
-          <p className="mini-label">Select Year</p>
-          <div className="chip-row">
+      <section className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
+        <div className="grid gap-3">
+          <p className="m-0 text-sm font-bold text-slate-500">Select Year</p>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
             {yearOptions.map((year) => (
               <button
                 key={year}
                 type="button"
-                className={filters.year === year ? "filter-chip active" : "filter-chip"}
+                className={filters.year === year ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
                 onClick={() => setFilters((current) => ({ ...current, year }))}
               >
                 {year}
@@ -112,14 +112,14 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="stack-section">
-          <p className="mini-label">Select Month</p>
-          <div className="chip-row scrollable">
+        <div className="grid gap-3">
+          <p className="m-0 text-sm font-bold text-slate-500">Select Month</p>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
             {monthOptions.map((month) => (
               <button
                 key={month.value}
                 type="button"
-                className={filters.month === month.value ? "filter-chip active" : "filter-chip"}
+                className={filters.month === month.value ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
                 onClick={() => setFilters((current) => ({ ...current, month: month.value }))}
               >
                 {month.label}
@@ -128,48 +128,52 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="alert-grid">
-          <div className="soft-alert amber">PENDING: Target for all active members.</div>
-          <div className="soft-alert violet">PAID: Collections reached so far.</div>
+        <div className="grid gap-3 min-[520px]:grid-cols-2">
+          <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">PENDING: Target for all active members.</div>
+          <div className="rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700">PAID: Collections reached so far.</div>
         </div>
       </section>
 
-      <section className="overview-grid">
+      <section className="grid gap-4 min-[520px]:grid-cols-2">
         {analyticsCards.map((card) => (
-          <article className={`metric-card tone-${card.tone}`} key={card.title}>
-            <span className="metric-title">{card.title}</span>
-            <strong>{card.value}</strong>
-            <p>{card.subtitle}</p>
+          <article className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5" key={card.title}>
+            <span className="text-sm font-bold text-slate-500">{card.title}</span>
+            <strong className="mt-2 block break-words text-2xl leading-tight text-slate-950 sm:text-3xl">{card.value}</strong>
+            <p className="m-0 mt-2 break-words text-sm text-slate-500 sm:text-base">{card.subtitle}</p>
           </article>
         ))}
       </section>
 
-      <section className="sheet-card">
-        <div className="section-heading-row">
-          <div>
-            <h3>Recent Expenses</h3>
-            <p className="section-subtitle">Latest spending recorded in this selected period.</p>
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="m-0 text-2xl font-extrabold">Recent Expenses</h3>
+            <p className="m-0 text-sm text-slate-500 sm:text-base">Latest spending recorded in this selected period.</p>
           </div>
-          <Link className="link-button" to="/expenses">
+          <Link className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800" to="/expenses">
             Open
           </Link>
         </div>
 
-        <div className="stack-list">
+        <div className="grid gap-4">
           {expenses.map((expense) => (
-            <div className="list-row-card" key={expense._id}>
-              <div>
-                <strong>{expense.title}</strong>
-                <p className="section-subtitle">{expense.category}</p>
+            <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 min-[430px]:flex min-[430px]:items-center min-[430px]:justify-between" key={expense._id}>
+              <div className="min-w-0">
+                <strong className="block break-words leading-tight">{expense.title}</strong>
+                <p className="m-0 mt-1 break-words text-sm text-slate-500">{expense.category}</p>
               </div>
-              <div className="list-row-side">
+              <div className="break-words font-extrabold text-teal-700 min-[430px]:shrink-0 min-[430px]:text-right">
                 <strong>{formatCurrency(expense.amount)}</strong>
               </div>
             </div>
           ))}
-          {expenses.length === 0 ? <div className="empty-state">No expenses found for the selected period.</div> : null}
+          {expenses.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No expenses found for the selected period.</div> : null}
         </div>
       </section>
     </div>
   );
 }
+
+
+
+
