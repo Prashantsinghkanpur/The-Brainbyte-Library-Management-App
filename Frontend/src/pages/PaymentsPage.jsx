@@ -258,7 +258,7 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper payment-table">
           <table>
             <thead>
               <tr>
@@ -273,17 +273,17 @@ export default function PaymentsPage() {
             <tbody>
               {payments.map((payment) => (
                 <tr key={payment._id}>
-                  <td>
+                  <td data-label="Student">
                     <strong>{payment.student?.name || "Deleted student"}</strong>
                     <div className="muted">
                       #{payment.student?.memberId || "-"} | Seat {payment.student?.seatNumber || "-"}
                     </div>
                   </td>
-                  <td>{formatCurrency(payment.amount)}</td>
-                  <td>{payment.method}</td>
-                  <td>{formatDate(payment.paymentDate)}</td>
-                  <td>{formatDate(payment.paidTill)}</td>
-                  <td>{payment.notes || "-"}</td>
+                  <td data-label="Amount">{formatCurrency(payment.amount)}</td>
+                  <td data-label="Method">{payment.method}</td>
+                  <td data-label="Payment Date">{formatDate(payment.paymentDate)}</td>
+                  <td data-label="Paid Till">{formatDate(payment.paidTill)}</td>
+                  <td data-label="Notes">{payment.notes || "-"}</td>
                 </tr>
               ))}
             </tbody>

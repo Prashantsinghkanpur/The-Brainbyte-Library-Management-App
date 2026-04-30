@@ -2,12 +2,12 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const navItems = [
-  { path: "/dashboard", label: "Dashboard" },
-  { path: "/students", label: "Students" },
-  { path: "/seats", label: "Seats" },
-  { path: "/payments", label: "Payments" },
-  { path: "/expenses", label: "Expenses" },
-  { path: "/settings", label: "Settings" }
+  { path: "/dashboard", label: "Home", short: "Home", icon: "home" },
+  { path: "/students", label: "Students", short: "Students", icon: "students" },
+  { path: "/seats", label: "Seats", short: "Seats", icon: "seats" },
+  { path: "/payments", label: "Payments", short: "Payments", icon: "payments" },
+  { path: "/analytics", label: "Analytics", short: "Analytics", icon: "analytics" },
+  { path: "/settings", label: "Settings", short: "Settings", icon: "settings" }
 ];
 
 export default function AppShell() {
@@ -22,10 +22,12 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div>
+        <div className="sidebar-top">
           <div className="brand-mark">BB</div>
-          <h1>Brainbyte Library</h1>
-          <p className="sidebar-copy">Manage seats, payments, students, and operations from one place.</p>
+          <div className="brand-copy">
+            <h1>Brainbyte</h1>
+            <p className="sidebar-copy">Library app</p>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -35,7 +37,8 @@ export default function AppShell() {
               to={item.path}
               className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
             >
-              {item.label}
+              <span className={`nav-icon nav-icon-${item.icon}`} aria-hidden="true" />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -53,14 +56,28 @@ export default function AppShell() {
 
       <main className="page-frame">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Library Admin Panel</p>
-            <h2>{user?.subscriptionPlan || "Starter"} Plan Workspace</h2>
+          <div className="topbar-copy">
+            <p className="eyebrow">Mobile Workspace</p>
+            <h2>{user?.name || "Library Owner"}</h2>
+            <p className="section-subtitle">{user?.subscriptionPlan || "Starter"} plan workspace</p>
           </div>
           <div className="status-pill">{user?.subscriptionStatus || "ACTIVE"}</div>
         </header>
         <Outlet />
       </main>
+
+      <nav className="bottom-nav">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => (isActive ? "bottom-link active" : "bottom-link")}
+          >
+            <span className={`nav-icon nav-icon-${item.icon}`} aria-hidden="true" />
+            <span>{item.short}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

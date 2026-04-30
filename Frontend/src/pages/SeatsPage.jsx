@@ -131,188 +131,170 @@ export default function SeatsPage() {
   };
 
   return (
-    <div className="page-content split-layout">
-      <section className="page-content">
-        <article className="card">
-          <div className="section-title">
-            <h3>{editingHallId ? "Edit Hall" : "Create Hall"}</h3>
-            <p className="section-subtitle">Set hall name and seat capacity. Student seat limits will follow this.</p>
-          </div>
-
-          {error ? <div className="message error">{error}</div> : null}
-          {success ? <div className="message success">{success}</div> : null}
-
-          <form className="form-grid" onSubmit={handleHallSubmit}>
-            <div className="field-grid">
-              <div className="field">
-                <label htmlFor="hall-name">Hall name</label>
-                <input id="hall-name" name="name" value={hallForm.name} onChange={handleHallFormChange} required />
-              </div>
-              <div className="field">
-                <label htmlFor="hall-totalSeats">Total seats</label>
-                <input
-                  id="hall-totalSeats"
-                  name="totalSeats"
-                  type="number"
-                  min="1"
-                  value={hallForm.totalSeats}
-                  onChange={handleHallFormChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="actions-row">
-              <button className="primary-button" disabled={submitting} type="submit">
-                {submitting ? "Saving..." : editingHallId ? "Update Hall" : "Create Hall"}
-              </button>
-              {editingHallId ? (
-                <button className="ghost-button" onClick={resetHallForm} type="button">
-                  Cancel edit
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </article>
-
-        <article className="table-card">
-          <div className="section-title">
-            <h3>Halls</h3>
-            <p className="section-subtitle">Quick access to edit capacity or remove empty halls.</p>
-          </div>
-
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Total Seats</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {gridData.halls.map((hall) => (
-                  <tr key={hall._id}>
-                    <td>{hall.name}</td>
-                    <td>{hall.totalSeats}</td>
-                    <td>
-                      <div className="inline-actions">
-                        <button className="ghost-button" onClick={() => handleHallEdit(hall)} type="button">
-                          Edit
-                        </button>
-                        <button className="danger-button" onClick={() => handleHallDelete(hall._id)} type="button">
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
+    <div className="page-content">
+      <section className="screen-header">
+        <div>
+          <p className="screen-kicker">MANAGEMENT</p>
+          <h1 className="screen-title">Space Grid</h1>
+        </div>
+        <div className="hero-actions">
+          <button className="round-action subtle" onClick={resetHallForm} type="button">
+            🗑
+          </button>
+          <button className="round-action filled" onClick={resetHallForm} type="button">
+            +
+          </button>
+        </div>
       </section>
 
-      <section className="page-content">
-        <article className="card-grid three-col">
-          <div className="stat-card">
-            <span className="eyebrow">Filled</span>
+      {error ? <div className="message error">{error}</div> : null}
+      {success ? <div className="message success">{success}</div> : null}
+
+      <section className="stack-card">
+        <form onSubmit={handleSearchSubmit}>
+          <input
+            className="search-input mobile-search"
+            name="search"
+            placeholder="Find student or seat..."
+            value={filters.search}
+            onChange={handleFilterChange}
+          />
+        </form>
+
+        <div className="seat-stats-grid">
+          <div className="mini-stat-card">
             <strong>{gridData.summary.filledSeats ?? 0}</strong>
+            <span>Filled</span>
           </div>
-          <div className="stat-card">
-            <span className="eyebrow">Vacant</span>
+          <div className="mini-stat-card">
             <strong>{gridData.summary.vacantSeats ?? 0}</strong>
+            <span>Vacant</span>
           </div>
-          <div className="stat-card">
-            <span className="eyebrow">Total Seats</span>
+          <div className="mini-stat-card">
+            <strong>{gridData.summary.totalStudents ?? 0}</strong>
+            <span>Students</span>
+          </div>
+          <div className="mini-stat-card">
             <strong>{gridData.summary.totalSeats ?? 0}</strong>
+            <span>Seats</span>
           </div>
-        </article>
+        </div>
 
-        <article className="table-card">
-          <div className="table-toolbar">
-            <div className="section-title">
-              <h3>Seat Grid</h3>
-              <p className="section-subtitle">Inspect occupancy, dues state, and student assignments by hall.</p>
-            </div>
-            <form onSubmit={handleSearchSubmit}>
-              <input
-                className="search-input"
-                name="search"
-                placeholder="Search seat or student"
-                value={filters.search}
-                onChange={handleFilterChange}
-              />
-            </form>
-          </div>
-
-          <div className="filters-grid">
-            <div className="field">
-              <label>Hall</label>
-              <select name="hallName" value={filters.hallName} onChange={handleFilterChange}>
-                <option value="">Auto select</option>
-                {gridData.halls.map((hall) => (
-                  <option key={hall._id} value={hall.name}>
-                    {hall.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Status</label>
-              <select name="status" value={filters.status} onChange={handleFilterChange}>
-                <option value="ALL">All</option>
-                <option value="OCCUPIED">Occupied</option>
-                <option value="VACANT">Vacant</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Shift</label>
-              <select name="shift" value={filters.shift} onChange={handleFilterChange}>
-                <option value="ALL">All</option>
-                <option value="FULL_DAY">Full Day</option>
-                <option value="MORNING">Morning</option>
-                <option value="EVENING">Evening</option>
-                <option value="CUSTOM">Custom</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Dues</label>
-              <select name="dues" value={filters.dues} onChange={handleFilterChange}>
-                <option value="ALL">All</option>
-                <option value="PAID">Paid</option>
-                <option value="UNPAID">Unpaid</option>
-                <option value="TRIAL">Trial</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="seat-grid">
-            {gridData.seats.map((seat) => (
-              <div
-                className={`seat-card ${seat.occupancyStatus.toLowerCase()}`}
-                key={`${seat.hallName}-${seat.seatNumber}`}
-              >
-                <div className="toolbar-row">
-                  <strong>Seat {seat.seatNumber}</strong>
-                  <span className={`tag ${seat.occupancyStatus.toLowerCase()}`}>{seat.occupancyStatus}</span>
-                </div>
-                {seat.student ? (
-                  <>
-                    <p><strong>{seat.student.name}</strong></p>
-                    <p className="muted">#{seat.student.memberId} | {seat.student.shift}</p>
-                    <p className="muted">{seat.student.daysRemaining} days left</p>
-                    <span className={`tag ${seat.student.duesState.toLowerCase()}`}>{seat.student.duesState}</span>
-                  </>
-                ) : (
-                  <p className="muted">Available for assignment</p>
-                )}
-              </div>
+        <div className="hall-header-row">
+          <select className="hall-pill" name="hallName" value={filters.hallName} onChange={handleFilterChange}>
+            <option value="">Main Hall</option>
+            {gridData.halls.map((hall) => (
+              <option key={hall._id} value={hall.name}>
+                {hall.name}
+              </option>
             ))}
+          </select>
+          <button className="ghost-button" onClick={() => handleHallEdit(gridData.selectedHall)} type="button" disabled={!gridData.selectedHall}>
+            Edit Hall
+          </button>
+        </div>
+
+        <div className="filter-rows">
+          <div className="filter-line">
+            <span className="mini-label">Shift</span>
+            <div className="chip-row scrollable">
+              {["ALL", "FULL_DAY", "MORNING", "EVENING", "CUSTOM"].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={filters.shift === value ? "filter-chip active" : "filter-chip"}
+                  onClick={() => handleFilterChange({ target: { name: "shift", value } })}
+                >
+                  {value.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-line">
+            <span className="mini-label">Status</span>
+            <div className="chip-row scrollable">
+              {["ALL", "VACANT", "OCCUPIED"].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={filters.status === value ? "filter-chip active" : "filter-chip"}
+                  onClick={() => handleFilterChange({ target: { name: "status", value } })}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-line">
+            <span className="mini-label">Dues</span>
+            <div className="chip-row scrollable">
+              {["ALL", "PAID", "UNPAID", "TRIAL"].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={filters.dues === value ? "filter-chip active" : "filter-chip"}
+                  onClick={() => handleFilterChange({ target: { name: "dues", value } })}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="seat-board">
+        <article className="seat-tile add-seat">
+          <button className="seat-add-button" onClick={resetHallForm} type="button">
+            +
+          </button>
+          <strong>Add More Seats</strong>
+          <p>to {gridData.selectedHall?.name || "Main Hall"}</p>
+        </article>
+
+        {gridData.seats.map((seat) => (
+          <article className="seat-tile" key={`${seat.hallName}-${seat.seatNumber}`}>
+            <div className="seat-tile-top">
+              <span className="seat-number-dot">• {seat.seatNumber}</span>
+              {seat.student ? <span className="days-chip">{seat.student.daysRemaining}d</span> : null}
+            </div>
+            <div className="seat-avatar">
+              {seat.student?.name ? seat.student.name.slice(0, 2).toUpperCase() : "+"}
+            </div>
+            <strong>{seat.student?.name || "Vacant"}</strong>
+            <p className="section-subtitle">{seat.student?.shift?.replace("_", " ") || "Available"}</p>
+            {seat.student ? <span className="tiny-chip">{seat.student.shift.replace("_", " ")}</span> : null}
+          </article>
+        ))}
+      </section>
+
+      <section className="sheet-card">
+        <div className="section-heading-row">
+          <h3>{editingHallId ? "Edit Hall" : "Create Hall"}</h3>
+        </div>
+        <form className="form-grid" onSubmit={handleHallSubmit}>
+          <div className="field-grid two-col">
+            <div className="field">
+              <label htmlFor="hall-name">Hall name</label>
+              <input id="hall-name" name="name" value={hallForm.name} onChange={handleHallFormChange} required />
+            </div>
+            <div className="field">
+              <label htmlFor="hall-totalSeats">Total seats</label>
+              <input id="hall-totalSeats" name="totalSeats" type="number" min="1" value={hallForm.totalSeats} onChange={handleHallFormChange} required />
+            </div>
           </div>
 
-          {gridData.seats.length === 0 ? <div className="empty-state">No seats match the current filters.</div> : null}
-        </article>
+          <div className="actions-row">
+            <button className="primary-button" disabled={submitting} type="submit">
+              {submitting ? "Saving..." : editingHallId ? "Update Hall" : "Create Hall"}
+            </button>
+            {editingHallId ? (
+              <button className="ghost-button" onClick={() => handleHallDelete(editingHallId)} type="button">
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </form>
       </section>
     </div>
   );

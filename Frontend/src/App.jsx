@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardPage from "./pages/DashboardPage";
 import ExpensesPage from "./pages/ExpensesPage";
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/students" element={<StudentsPage />} />
         <Route path="/seats" element={<SeatsPage />} />
         <Route path="/payments" element={<PaymentsPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

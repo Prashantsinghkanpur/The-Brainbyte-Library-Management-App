@@ -188,7 +188,7 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper expense-table">
           <table>
             <thead>
               <tr>
@@ -202,11 +202,11 @@ export default function ExpensesPage() {
             <tbody>
               {expenses.map((expense) => (
                 <tr key={expense._id}>
-                  <td>{expense.title}</td>
-                  <td>{expense.category}</td>
-                  <td>{formatCurrency(expense.amount)}</td>
-                  <td>{formatDate(expense.expenseDate)}</td>
-                  <td>{expense.notes || "-"}</td>
+                  <td data-label="Title">{expense.title}</td>
+                  <td data-label="Category">{expense.category}</td>
+                  <td data-label="Amount">{formatCurrency(expense.amount)}</td>
+                  <td data-label="Date">{formatDate(expense.expenseDate)}</td>
+                  <td data-label="Notes">{expense.notes || "-"}</td>
                 </tr>
               ))}
             </tbody>
