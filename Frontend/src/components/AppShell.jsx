@@ -20,8 +20,8 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
-      <aside className="sticky top-0 z-20 hidden min-h-screen flex-col gap-7 border-r border-slate-200/90 bg-white/80 px-6 py-7 backdrop-blur lg:flex">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100 dark:[&_.bg-white]:bg-slate-900 dark:[&_.bg-slate-50]:bg-slate-800 dark:[&_.bg-slate-100]:bg-slate-800 dark:[&_.border-slate-200]:border-slate-700 dark:[&_.text-slate-950]:text-slate-50 dark:[&_.text-slate-900]:text-slate-100 dark:[&_.text-slate-800]:text-slate-200 dark:[&_.text-slate-700]:text-slate-300 dark:[&_.text-slate-600]:text-slate-300 dark:[&_.text-slate-500]:text-slate-400 lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
+      <aside className="sticky top-0 z-20 hidden min-h-screen flex-col gap-7 border-r border-slate-200/90 bg-white/80 px-6 py-7 backdrop-blur dark:border-slate-700 dark:bg-slate-900/80 lg:flex">
         <div className="flex items-center gap-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-sky-500 font-extrabold text-white shadow-lg shadow-teal-700/15">BB</div>
           <div>
@@ -72,7 +72,7 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur sm:px-2 lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:px-2 lg:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.path}

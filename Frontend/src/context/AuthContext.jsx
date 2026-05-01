@@ -20,6 +20,27 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authState));
   }, [authState]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const applyTheme = () => {
+      const themeMode = (authState.user?.themeMode || "LIGHT").toUpperCase();
+      const shouldUseDark = themeMode === "DARK" || (themeMode === "SYSTEM" && mediaQuery.matches);
+
+      root.classList.toggle("dark", shouldUseDark);
+      root.dataset.themeMode = themeMode;
+      root.style.colorScheme = shouldUseDark ? "dark" : "light";
+    };
+
+    applyTheme();
+    mediaQuery.addEventListener("change", applyTheme);
+
+    return () => {
+      mediaQuery.removeEventListener("change", applyTheme);
+    };
+  }, [authState.user?.themeMode]);
+
   const setSession = (payload) => {
     setAuthState({
       token: payload.token,

@@ -32,40 +32,40 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
-      <section className="flex min-h-[30vh] flex-col justify-between gap-6 bg-gradient-to-b from-slate-200 to-slate-100 p-5 sm:min-h-[34vh] sm:p-6 lg:min-h-screen lg:p-14">
+    <div className="grid min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
+      <section className="flex min-h-[30vh] flex-col justify-between gap-6 bg-gradient-to-b from-slate-200 to-slate-100 p-5 dark:from-slate-900 dark:to-slate-800 sm:min-h-[34vh] sm:p-6 lg:min-h-screen lg:p-14">
         <div className="min-w-0">
           <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-sky-500 font-extrabold text-white shadow-lg shadow-teal-700/15 sm:mb-6">BB</div>
           <h1 className="m-0 max-w-xl break-words text-3xl font-extrabold leading-tight min-[380px]:text-4xl">Run your library with less manual follow-up.</h1>
-          <p className="mt-4 max-w-xl break-words text-sm text-slate-600 sm:text-base">
+          <p className="mt-4 max-w-xl break-words text-sm text-slate-600 dark:text-slate-300 sm:text-base">
             Track students, seats, payments, and dues in one admin workspace built for day-to-day
             operations.
           </p>
         </div>
         <div className="min-w-0">
-          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">What you already have</p>
-          <p className="m-0 mt-2 max-w-xl break-words text-sm text-slate-600 sm:text-base">Secure auth, student records, seat grids, payment tracking, expenses, analytics, and settings.</p>
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">What you already have</p>
+          <p className="m-0 mt-2 max-w-xl break-words text-sm text-slate-600 dark:text-slate-300 sm:text-base">Secure auth, student records, seat grids, payment tracking, expenses, analytics, and settings.</p>
         </div>
       </section>
 
       <section className="flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <form className="grid w-full max-w-xl gap-4 rounded-[1.5rem] border border-white/60 bg-white/90 p-4 shadow-2xl shadow-slate-400/25 backdrop-blur sm:rounded-[2rem] sm:p-6" onSubmit={handleSubmit}>
+        <form className="grid w-full max-w-xl gap-4 rounded-[1.5rem] border border-white/60 bg-white/90 p-4 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 sm:rounded-[2rem] sm:p-6" onSubmit={handleSubmit}>
           <div className="grid gap-1">
             <h1 className="m-0 text-3xl font-extrabold">Welcome back</h1>
-            <p className="m-0 break-words text-sm text-slate-500 sm:text-base">Sign in to continue managing your library.</p>
+            <p className="m-0 break-words text-sm text-slate-500 dark:text-slate-400 sm:text-base">Sign in to continue managing your library.</p>
           </div>
 
           {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
 
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <label className="font-semibold text-slate-600" htmlFor="email">Email</label>
-              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
+              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="email">Email</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-teal-900/50" id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
             </div>
             <div className="grid gap-2">
-              <label className="font-semibold text-slate-600" htmlFor="password">Password</label>
+              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="password">Password</label>
               <input
-                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-teal-900/50"
                 id="password"
                 name="password"
                 type="password"
@@ -80,7 +80,7 @@ export default function LoginPage() {
             {isSubmitting ? "Signing in..." : "Login"}
           </button>
 
-          <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
+          <p className="m-0 break-words text-sm text-slate-500 dark:text-slate-400 sm:text-base">
             New here? <Link className="font-bold text-teal-700" to="/register">Create your library account</Link>
           </p>
         </form>
