@@ -25,6 +25,7 @@ export default function SeatsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showHallForm, setShowHallForm] = useState(false);
 
   const loadGrid = async (nextFilters = filters) => {
     setError("");
@@ -78,6 +79,31 @@ export default function SeatsPage() {
     setEditingHallId("");
   };
 
+  const openHallForm = () => {
+    resetHallForm();
+    setShowHallForm(true);
+    window.setTimeout(() => {
+      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
+  const openAddSeatsForm = () => {
+    if (gridData.selectedHall) {
+      setEditingHallId(gridData.selectedHall._id);
+      setHallForm({
+        name: gridData.selectedHall.name,
+        totalSeats: Number(gridData.selectedHall.totalSeats || 0) + 1
+      });
+    } else {
+      resetHallForm();
+    }
+
+    setShowHallForm(true);
+    window.setTimeout(() => {
+      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
   const handleHallSubmit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -93,18 +119,19 @@ export default function SeatsPage() {
           token,
           body: payload
         });
-        setSuccess("Hall updated successfully.");
+        setSuccess("Seats updated successfully.");
       } else {
         await apiRequest("/seats/halls", {
           method: "POST",
           token,
           body: payload
         });
-        setSuccess("Hall created successfully.");
+        setSuccess("Seats added successfully.");
       }
 
       resetHallForm();
-      loadGrid();
+      setShowHallForm(false);
+      loadGrid({ ...filters, hallName: payload.name });
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -113,8 +140,13 @@ export default function SeatsPage() {
   };
 
   const handleHallEdit = (hall) => {
+    if (!hall) return;
     setEditingHallId(hall._id);
     setHallForm({ name: hall.name, totalSeats: hall.totalSeats });
+    setShowHallForm(true);
+    window.setTimeout(() => {
+      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
 
   const handleHallDelete = async (hallId) => {
@@ -123,7 +155,8 @@ export default function SeatsPage() {
 
     try {
       await apiRequest(`/seats/halls/${hallId}`, { method: "DELETE", token });
-      setSuccess("Hall deleted successfully.");
+      setSuccess("Seats deleted successfully.");
+      setShowHallForm(false);
       loadGrid();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -138,10 +171,10 @@ export default function SeatsPage() {
           <h1 className="m-0 mt-1 text-[2.45rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Space Grid</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-lg font-bold shadow-xl shadow-slate-300/40 sm:h-14 sm:w-14" onClick={resetHallForm} type="button" aria-label="Clear hall form">
+          <button className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-lg font-bold shadow-xl shadow-slate-300/40 sm:h-14 sm:w-14" onClick={() => { resetHallForm(); setShowHallForm(false); }} type="button" aria-label="Clear hall form">
             X
           </button>
-          <button className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-700 text-3xl text-white shadow-xl shadow-teal-700/20 sm:h-14 sm:w-14" onClick={resetHallForm} type="button" aria-label="Create hall">
+          <button className="grid h-12 w-12 place-items-center rounded-2xl bg-teal-700 text-3xl text-white shadow-xl shadow-teal-700/20 sm:h-14 sm:w-14" onClick={openHallForm} type="button" aria-label="Add seats">
             +
           </button>
         </div>
@@ -190,7 +223,7 @@ export default function SeatsPage() {
             ))}
           </select>
           <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => handleHallEdit(gridData.selectedHall)} type="button" disabled={!gridData.selectedHall}>
-            Edit Hall
+            Edit Seats
           </button>
         </div>
 
@@ -245,7 +278,7 @@ export default function SeatsPage() {
 
       <section className="grid gap-4 min-[430px]:grid-cols-2 xl:grid-cols-3">
         <article className="grid min-h-40 place-items-center rounded-[1.5rem] border border-dashed border-slate-300 bg-white p-4 text-center shadow-lg shadow-slate-300/20 sm:rounded-[1.75rem] sm:p-5">
-          <button className="grid h-14 w-14 place-items-center rounded-full border-0 bg-teal-50 text-4xl text-teal-700 sm:h-16 sm:w-16" onClick={resetHallForm} type="button">
+          <button className="grid h-14 w-14 place-items-center rounded-full border-0 bg-teal-50 text-4xl text-teal-700 sm:h-16 sm:w-16" onClick={openAddSeatsForm} type="button">
             +
           </button>
           <strong className="block">Add More Seats</strong>
@@ -268,14 +301,15 @@ export default function SeatsPage() {
         ))}
       </section>
 
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
+      {showHallForm ? (
+      <section id="hall-form-section" className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="m-0 text-2xl font-extrabold">{editingHallId ? "Edit Hall" : "Create Hall"}</h3>
+          <h3 className="m-0 text-2xl font-extrabold">{editingHallId ? "Edit Seats" : "Add Seats"}</h3>
         </div>
         <form className="grid gap-4" onSubmit={handleHallSubmit}>
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
-              <label className="font-semibold text-slate-600" htmlFor="hall-name">Hall name</label>
+              <label className="font-semibold text-slate-600" htmlFor="hall-name">Section name</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="hall-name" name="name" value={hallForm.name} onChange={handleHallFormChange} required />
             </div>
             <div className="grid gap-2">
@@ -286,7 +320,7 @@ export default function SeatsPage() {
 
           <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={submitting} type="submit">
-              {submitting ? "Saving..." : editingHallId ? "Update Hall" : "Create Hall"}
+              {submitting ? "Saving..." : editingHallId ? "Update Seats" : "Add Seats"}
             </button>
             {editingHallId ? (
               <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleHallDelete(editingHallId)} type="button">
@@ -296,6 +330,7 @@ export default function SeatsPage() {
           </div>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

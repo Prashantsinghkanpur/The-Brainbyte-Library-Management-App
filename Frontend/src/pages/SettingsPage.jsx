@@ -10,6 +10,21 @@ const initialProfile = {
   libraryName: ""
 };
 
+const loadRazorpayCheckout = () =>
+  new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error("Unable to load Razorpay checkout"));
+    document.body.appendChild(script);
+  });
+
 export default function SettingsPage() {
   const { token, patchUser, user } = useAuth();
   const [profile, setProfile] = useState(initialProfile);
@@ -78,6 +93,12 @@ export default function SettingsPage() {
         token,
         body: profile
       });
+      setProfile({
+        name: data.user.name || "",
+        email: data.user.email || "",
+        phone: data.library.phone || "",
+        libraryName: data.library.name || ""
+      });
       patchUser((currentUser) => ({
         ...currentUser,
         ...data.user
@@ -117,6 +138,65 @@ export default function SettingsPage() {
     setSuccess("");
 
     try {
+      if (action === "RENEW") {
+        await loadRazorpayCheckout();
+
+        const order = await apiRequest("/settings/subscription/order", {
+          method: "POST",
+          token
+        });
+
+        const paymentResult = await new Promise((resolve, reject) => {
+          const checkout = new window.Razorpay({
+            key: order.keyId,
+            amount: order.amount,
+            currency: order.currency,
+            name: order.name,
+            description: order.description,
+            order_id: order.orderId,
+            prefill: {
+              name: profile.name || user?.name || "",
+              email: profile.email || user?.email || "",
+              contact: profile.phone || ""
+            },
+            notes: {
+              libraryName: profile.libraryName || ""
+            },
+            theme: {
+              color: "#0f766e"
+            },
+            handler: resolve,
+            modal: {
+              ondismiss: () => reject(new Error("Payment was cancelled"))
+            }
+          });
+
+          checkout.on("payment.failed", (response) => {
+            reject(new Error(response.error?.description || "Payment failed"));
+          });
+
+          checkout.open();
+        });
+
+        const data = await apiRequest("/settings/subscription/verify", {
+          method: "POST",
+          token,
+          body: paymentResult
+        });
+
+        setSubscription(data);
+        patchUser((currentUser) => ({
+          ...currentUser,
+          subscriptionPlan: data.plan,
+          subscriptionStatus: data.status,
+          subscriptionRenewsAt: data.renewsAt
+        }));
+
+        setSuccess("Payment successful. Pro membership renewed for 30 more days.");
+        loadSettings();
+        return;
+      }
+
       const data = await apiRequest("/settings/subscription", {
         method: "PATCH",
         token,
@@ -134,10 +214,9 @@ export default function SettingsPage() {
       setSuccess(
         action === "CANCEL"
           ? "Subscription marked as canceled."
-          : action === "RESTORE"
-            ? "Pro membership restored successfully."
-            : "Pro membership renewed for 30 more days."
+          : "Pro membership restored successfully."
       );
+      loadSettings();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -147,9 +226,9 @@ export default function SettingsPage() {
 
   return (
     <div className="grid gap-5 sm:gap-6">
-      <section className="flex items-start justify-between gap-3 pt-2 sm:pt-4">
+      <section className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="m-0 mt-1 text-[2.55rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Settings</h1>
+          <h1 className="m-0 text-[2.55rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Settings</h1>
           <p className="m-0 break-words text-sm text-slate-500 sm:text-base">Manage your account and preferences</p>
         </div>
       </section>
@@ -180,11 +259,11 @@ export default function SettingsPage() {
         </div>
         <button
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-white/20 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={subscriptionAction === "RENEW"}
+          disabled={Boolean(subscriptionAction)}
           onClick={() => handleSubscriptionAction("RENEW")}
           type="button"
         >
-          {subscriptionAction === "RENEW" ? "Renewing..." : "Renew"}
+          {subscriptionAction === "RENEW" ? "Opening..." : "Pay & Renew"}
         </button>
       </section>
 
@@ -225,7 +304,7 @@ export default function SettingsPage() {
                 <div className="min-w-0">
                   <strong className="block break-all leading-tight">{item.reference}</strong>
                   <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
-                    {formatDate(item.paymentDate)} | {item.method}
+                    {formatDate(item.paymentDate)} | {item.method} | {item.status}
                   </p>
                 </div>
                 <span className="break-words font-extrabold text-teal-700 min-[430px]:shrink-0 min-[430px]:text-right">{formatCurrency(item.amount)}</span>

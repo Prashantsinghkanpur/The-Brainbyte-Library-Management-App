@@ -84,6 +84,7 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(authState.token),
       isBootstrapping,
       setIsBootstrapping,
+      setSession,
       login,
       register,
       logout: clearSession,

@@ -42,6 +42,8 @@ exports.addStudent = async (req, res) => {
     const {
       name,
       phone,
+      parentName,
+      parentPhone,
       seatNumber,
       plan,
       feeAmount,
@@ -99,6 +101,8 @@ exports.addStudent = async (req, res) => {
       memberId: await getNextMemberId(req.user.libraryId),
       name: name.trim(),
       phone: phone.trim(),
+      parentName: parentName ? parentName.trim() : "",
+      parentPhone: parentPhone ? parentPhone.trim() : "",
       hallName: normalizedHallName,
       seatNumber: numericSeatNumber,
       shift: normalizedShift,
@@ -154,7 +158,9 @@ exports.getStudents = async (req, res) => {
       const trimmedSearch = search.trim();
       const searchConditions = [
         { name: { $regex: trimmedSearch, $options: "i" } },
-        { phone: { $regex: trimmedSearch, $options: "i" } }
+        { phone: { $regex: trimmedSearch, $options: "i" } },
+        { parentName: { $regex: trimmedSearch, $options: "i" } },
+        { parentPhone: { $regex: trimmedSearch, $options: "i" } }
       ];
 
       const searchAsNumber = Number(trimmedSearch);
@@ -223,6 +229,8 @@ exports.updateStudent = async (req, res) => {
     const {
       name,
       phone,
+      parentName,
+      parentPhone,
       seatNumber,
       plan,
       feeAmount,
@@ -237,6 +245,8 @@ exports.updateStudent = async (req, res) => {
 
     if (name !== undefined) student.name = name.trim();
     if (phone !== undefined) student.phone = phone.trim();
+    if (parentName !== undefined) student.parentName = parentName.trim();
+    if (parentPhone !== undefined) student.parentPhone = parentPhone.trim();
     if (plan !== undefined) student.plan = plan.trim();
     if (feeAmount !== undefined) {
       const numericFeeAmount = Number(feeAmount);

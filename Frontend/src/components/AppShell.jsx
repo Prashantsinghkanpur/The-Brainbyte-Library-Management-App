@@ -1,5 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { apiRequest } from "../lib/api";
+import { getErrorMessage } from "../lib/format";
 
 const navItems = [
   { path: "/dashboard", label: "Home", short: "Home", icon: "H" },
@@ -12,11 +15,55 @@ const navItems = [
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { token, user, logout, setSession } = useAuth();
+  const [libraries, setLibraries] = useState([]);
+  const [switchingLibrary, setSwitchingLibrary] = useState(false);
+  const [libraryError, setLibraryError] = useState("");
+
+  useEffect(() => {
+    const loadLibraries = async () => {
+      try {
+        const data = await apiRequest("/auth/libraries", { token });
+        setLibraries(data.libraries || []);
+      } catch (error) {
+        setLibraryError(getErrorMessage(error));
+      }
+    };
+
+    if (token) {
+      loadLibraries();
+    }
+  }, [token, user?.libraryId]);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleLibrarySwitch = async (event) => {
+    const libraryId = event.target.value;
+
+    if (!libraryId || libraryId === user?.libraryId) {
+      return;
+    }
+
+    setSwitchingLibrary(true);
+    setLibraryError("");
+
+    try {
+      const data = await apiRequest("/auth/libraries/switch", {
+        method: "POST",
+        token,
+        body: { libraryId }
+      });
+
+      setSession({ token: data.token, user: data.user });
+      navigate("/dashboard");
+    } catch (error) {
+      setLibraryError(getErrorMessage(error));
+    } finally {
+      setSwitchingLibrary(false);
+    }
   };
 
   return (
@@ -54,6 +101,23 @@ export default function AppShell() {
             <strong>{user?.name || "Owner"}</strong>
             <p className="m-0 break-all text-sm text-slate-500">{user?.email || "No email"}</p>
           </div>
+          <div className="grid gap-2">
+            <label className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500" htmlFor="desktop-library-switch">Library</label>
+            <select
+              className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none"
+              disabled={switchingLibrary || libraries.length === 0}
+              id="desktop-library-switch"
+              onChange={handleLibrarySwitch}
+              value={user?.libraryId || ""}
+            >
+              {libraries.map((library) => (
+                <option key={library._id} value={library._id}>
+                  {library.name}
+                </option>
+              ))}
+            </select>
+            {libraryError ? <p className="m-0 text-xs font-bold text-red-600">{libraryError}</p> : null}
+          </div>
           <button className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={handleLogout} type="button">
             Log out
           </button>
@@ -63,12 +127,26 @@ export default function AppShell() {
       <main className="min-w-0 overflow-x-hidden px-4 pb-32 pt-5 sm:px-6 sm:pt-6 lg:px-6 lg:pb-8">
         <header className="mb-5 hidden items-center justify-between lg:flex">
           <div className="min-w-0">
-            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Mobile Workspace</p>
             <h2 className="m-0 break-words text-2xl font-extrabold">{user?.name || "Library Owner"}</h2>
-            <p className="m-0 break-words text-sm text-slate-500">{user?.subscriptionPlan || "Starter"} plan workspace</p>
           </div>
           <div className="shrink-0 rounded-full bg-emerald-50 px-4 py-2 text-xs font-extrabold text-emerald-700">{user?.subscriptionStatus || "ACTIVE"}</div>
         </header>
+        <div className="mb-4 grid gap-2 lg:hidden">
+          <select
+            className="min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 outline-none"
+            disabled={switchingLibrary || libraries.length === 0}
+            onChange={handleLibrarySwitch}
+            value={user?.libraryId || ""}
+            aria-label="Switch library"
+          >
+            {libraries.map((library) => (
+              <option key={library._id} value={library._id}>
+                {library.name}
+              </option>
+            ))}
+          </select>
+          {libraryError ? <p className="m-0 text-xs font-bold text-red-600">{libraryError}</p> : null}
+        </div>
         <Outlet />
       </main>
 

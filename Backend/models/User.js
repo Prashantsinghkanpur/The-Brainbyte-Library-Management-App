@@ -49,6 +49,13 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Library",
     required: true
+  },
+  managedLibraryIds: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Library"
+    }],
+    default: []
   }
 }, { timestamps: true });
 

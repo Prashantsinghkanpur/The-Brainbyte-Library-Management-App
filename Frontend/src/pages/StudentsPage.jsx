@@ -7,8 +7,10 @@ import { getStudentMessageActions } from "../lib/messages";
 const initialForm = {
   name: "",
   phone: "",
+  parentName: "",
+  parentPhone: "",
   seatNumber: "",
-  plan: "",
+  plan: "1 Month",
   feeAmount: "",
   paidTill: "",
   hallName: "",
@@ -41,6 +43,7 @@ export default function StudentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [copiedId, setCopiedId] = useState("");
+  const [showStudentForm, setShowStudentForm] = useState(false);
 
   const loadData = async (activeFilters = filters) => {
     setLoading(true);
@@ -68,6 +71,10 @@ export default function StudentsPage() {
 
   useEffect(() => {
     loadData(initialFilters);
+
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      setShowStudentForm(true);
+    }
   }, [token]);
 
   const handleFilterChange = (event) => {
@@ -88,6 +95,14 @@ export default function StudentsPage() {
     loadData();
   };
 
+  const applyQuickFilter = (nextValues) => {
+    setFilters((current) => {
+      const nextFilters = { ...current, ...nextValues };
+      loadData(nextFilters);
+      return nextFilters;
+    });
+  };
+
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -96,6 +111,14 @@ export default function StudentsPage() {
   const resetForm = () => {
     setForm(initialForm);
     setEditingId("");
+  };
+
+  const openStudentForm = () => {
+    resetForm();
+    setShowStudentForm(true);
+    window.setTimeout(() => {
+      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
 
   const handleView = async (student) => {
@@ -117,6 +140,8 @@ export default function StudentsPage() {
     setForm({
       name: student.name || "",
       phone: student.phone || "",
+      parentName: student.parentName || "",
+      parentPhone: student.parentPhone || "",
       seatNumber: student.seatNumber || "",
       plan: student.plan || "",
       feeAmount: student.feeAmount ?? "",
@@ -127,8 +152,11 @@ export default function StudentsPage() {
       membershipStartDate: toDateInputValue(student.membershipStartDate),
       notes: student.notes || ""
     });
+    setShowStudentForm(true);
     setViewingStudent(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.setTimeout(() => {
+      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
 
   const handleSubmit = async (event) => {
@@ -167,6 +195,7 @@ export default function StudentsPage() {
       }
 
       resetForm();
+      setShowStudentForm(false);
       loadData();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
@@ -234,6 +263,14 @@ export default function StudentsPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
               <p className="m-0 mt-1 break-words">{viewingStudent.phone}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Name</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.parentName || "-"}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.parentPhone || "-"}</p>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Plan</span>
@@ -313,14 +350,14 @@ export default function StudentsPage() {
             <button
               type="button"
               className={!filters.shift ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-              onClick={() => handleFilterChange({ target: { name: "shift", value: "" } })}
+              onClick={() => applyQuickFilter({ shift: "" })}
             >
               All Shifts
             </button>
             <button
               type="button"
               className={filters.shift === "FULL_DAY" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-              onClick={() => handleFilterChange({ target: { name: "shift", value: "FULL_DAY" } })}
+              onClick={() => applyQuickFilter({ shift: filters.shift === "FULL_DAY" ? "" : "FULL_DAY" })}
             >
               Full Day
             </button>
@@ -331,28 +368,28 @@ export default function StudentsPage() {
           <button
             type="button"
             className={filters.sort === "recent" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => handleFilterChange({ target: { name: "sort", value: "recent" } })}
+            onClick={() => applyQuickFilter({ sort: "recent", paymentStatus: "", status: "" })}
           >
             Recent
           </button>
           <button
             type="button"
             className={filters.paymentStatus === "PAID" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => handleFilterChange({ target: { name: "paymentStatus", value: "PAID" } })}
+            onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "PAID" ? "" : "PAID", status: "" })}
           >
             Paid
           </button>
           <button
             type="button"
             className={filters.paymentStatus === "DUE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => handleFilterChange({ target: { name: "paymentStatus", value: "DUE" } })}
+            onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "DUE" ? "" : "DUE", status: "" })}
           >
             Dues
           </button>
           <button
             type="button"
             className={filters.status === "ACTIVE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => handleFilterChange({ target: { name: "status", value: "ACTIVE" } })}
+            onClick={() => applyQuickFilter({ status: filters.status === "ACTIVE" ? "" : "ACTIVE", paymentStatus: "" })}
           >
             Active
           </button>
@@ -362,7 +399,7 @@ export default function StudentsPage() {
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="m-0 text-2xl font-extrabold">Profiles</h3>
-          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={resetForm} type="button">
+          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={openStudentForm} type="button">
             New Member
           </button>
         </div>
@@ -390,6 +427,14 @@ export default function StudentsPage() {
                   <div className="rounded-3xl border border-slate-200 bg-white p-4">
                     <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
                     <p className="m-0 mt-1 break-words">{student.status}</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
+                    <p className="m-0 mt-1 break-words">{student.parentName || "-"}</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
+                    <p className="m-0 mt-1 break-words">{student.parentPhone || "-"}</p>
                   </div>
                   <div className="rounded-3xl border border-slate-200 bg-white p-4">
                     <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
@@ -423,10 +468,10 @@ export default function StudentsPage() {
                     {loadingStudentDetail ? "Opening..." : "View"}
                   </button>
                   <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.welcomeLinks.whatsapp} target="_blank" rel="noreferrer">
-                    Welcome WA
+                    Welcome WhatsApp
                   </a>
                   <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.reminderLinks.whatsapp} target="_blank" rel="noreferrer">
-                    Reminder WA
+                    Reminder WhatsApp
                   </a>
                   <a className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" href={actions.welcomeLinks.sms}>
                     Welcome SMS
@@ -448,7 +493,8 @@ export default function StudentsPage() {
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+      {showStudentForm ? (
+      <section id="student-form-section" className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="m-0 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
         </div>
@@ -462,6 +508,14 @@ export default function StudentsPage() {
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-phone">Phone</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-phone" name="phone" value={form.phone} onChange={handleFormChange} required />
+            </div>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-parentName">Parent Name</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentName" name="parentName" value={form.parentName} onChange={handleFormChange} />
+            </div>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-parentPhone">Parent Number</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentPhone" name="parentPhone" value={form.parentPhone} onChange={handleFormChange} />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-seat">Seat Number</label>
@@ -478,7 +532,14 @@ export default function StudentsPage() {
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-plan">Plan</label>
-              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-plan" name="plan" value={form.plan} onChange={handleFormChange} required />
+              <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-plan" name="plan" value={form.plan} onChange={handleFormChange} required>
+                <option value="1 Month">1 Month</option>
+                <option value="2 Months">2 Months</option>
+                <option value="3 Months">3 Months</option>
+                <option value="6 Months">6 Months</option>
+                <option value="12 Months">12 Months</option>
+                <option value="Trial">Trial</option>
+              </select>
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-fee">Fee Amount</label>
@@ -509,13 +570,14 @@ export default function StudentsPage() {
               {submitting ? "Saving..." : editingId ? "Update Student" : "Add Student"}
             </button>
             {editingId ? (
-              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={resetForm} type="button">
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => { resetForm(); setShowStudentForm(false); }} type="button">
                 Cancel
               </button>
             ) : null}
           </div>
         </form>
       </section>
+      ) : null}
     </div>
   );
 }

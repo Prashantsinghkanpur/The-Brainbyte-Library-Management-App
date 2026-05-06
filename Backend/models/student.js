@@ -20,6 +20,16 @@ const studentSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  parentName: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  parentPhone: {
+    type: String,
+    trim: true,
+    default: ""
+  },
   hallName: {
     type: String,
     default: "Main Hall",
