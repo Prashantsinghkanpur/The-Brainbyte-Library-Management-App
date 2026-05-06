@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/format";
+import { LogoButton, LogoPopup } from "../components/LogoPreview";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLogoOpen, setIsLogoOpen] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -32,30 +34,41 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
-      <section className="flex min-h-[30vh] flex-col justify-between gap-6 bg-gradient-to-b from-slate-200 to-slate-100 p-5 dark:from-slate-900 dark:to-slate-800 sm:min-h-[34vh] sm:p-6 lg:min-h-screen lg:p-14">
+    <div className="grid min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#d9f99d_0,#ccfbf1_30%,#eff6ff_60%,#fff7ed_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,#134e4a_0,#0f172a_48%,#111827_100%)] dark:text-slate-100 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
+      <section className="relative flex min-h-[34vh] flex-col justify-between gap-6 overflow-hidden bg-white/30 p-5 backdrop-blur dark:bg-slate-950/30 sm:min-h-[38vh] sm:p-6 lg:min-h-screen lg:p-14">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400" aria-hidden="true" />
         <div className="min-w-0">
-          <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-sky-500 font-extrabold text-white shadow-lg shadow-teal-700/15 sm:mb-6">BB</div>
-          <h1 className="m-0 max-w-xl break-words text-3xl font-extrabold leading-tight min-[380px]:text-4xl">Run your library with less manual follow-up.</h1>
-          <p className="mt-4 max-w-xl break-words text-sm text-slate-600 dark:text-slate-300 sm:text-base">
+          <LogoButton
+            buttonClassName="mx-auto mb-5 grid h-24 w-24 place-items-center overflow-hidden rounded-[1.4rem] border border-white/80 bg-white p-2 shadow-2xl shadow-teal-700/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:focus:ring-teal-900/50 sm:mb-6"
+            imageClassName="h-full w-full object-contain"
+            onClick={() => setIsLogoOpen(true)}
+          />
+          <h1 className="m-0 max-w-xl break-words text-3xl font-black leading-tight text-slate-950 min-[380px]:text-4xl dark:text-white">Run your library with less manual follow-up.</h1>
+          <p className="mt-4 max-w-xl break-words text-sm leading-7 text-slate-700 dark:text-slate-300 sm:text-base">
             Track students, seats, payments, and dues in one admin workspace built for day-to-day
             operations.
           </p>
         </div>
         <div className="min-w-0">
-          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">What you already have</p>
-          <p className="m-0 mt-2 max-w-xl break-words text-sm text-slate-600 dark:text-slate-300 sm:text-base">Secure auth, student records, seat grids, payment tracking, expenses, analytics, and settings.</p>
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">What you already have</p>
+          <p className="m-0 mt-2 max-w-xl break-words text-sm leading-7 text-slate-700 dark:text-slate-300 sm:text-base">Secure auth, student records, seat grids, payment tracking, expenses, analytics, and settings.</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className="rounded-full bg-teal-600 px-3 py-1 text-xs font-extrabold text-white shadow-lg shadow-teal-700/15">Students</span>
+            <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-extrabold text-white shadow-lg shadow-sky-700/15">Seats</span>
+            <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-700/15">Payments</span>
+          </div>
         </div>
       </section>
 
       <section className="flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <form className="grid w-full max-w-xl gap-4 rounded-[1.5rem] border border-white/60 bg-white/90 p-4 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 sm:rounded-[2rem] sm:p-6" onSubmit={handleSubmit}>
+        <form className="grid w-full max-w-xl gap-5 rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-2xl shadow-slate-400/25 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/30 sm:rounded-[2rem] sm:p-7" onSubmit={handleSubmit}>
           <div className="grid gap-1">
-            <h1 className="m-0 text-3xl font-extrabold">Welcome back</h1>
+            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300">Owner workspace</p>
+            <h1 className="m-0 text-3xl font-black">Welcome back</h1>
             <p className="m-0 break-words text-sm text-slate-500 dark:text-slate-400 sm:text-base">Sign in to continue managing your library.</p>
           </div>
 
-          {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
+          {error ? <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
 
           <div className="grid gap-4">
             <div className="grid gap-2">
@@ -76,7 +89,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
+          <button className="min-h-12 rounded-full bg-gradient-to-r from-teal-700 via-emerald-600 to-sky-600 px-5 py-3 font-extrabold text-white shadow-xl shadow-teal-700/25 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Signing in..." : "Login"}
           </button>
 
@@ -85,6 +98,8 @@ export default function LoginPage() {
           </p>
         </form>
       </section>
+
+      <LogoPopup isOpen={isLogoOpen} onClose={() => setIsLogoOpen(false)} />
     </div>
   );
 }

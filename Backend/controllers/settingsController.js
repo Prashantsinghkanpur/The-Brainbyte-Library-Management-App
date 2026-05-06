@@ -99,6 +99,7 @@ const buildSettingsResponse = (user, library) => ({
     name: library.name,
     ownerName: library.ownerName,
     phone: library.phone,
+    address: library.address || "",
     createdAt: library.createdAt
   }
 });
@@ -169,7 +170,7 @@ exports.updateSettingsProfile = async (req, res) => {
       return res.status(404).json({ msg: "Profile not found" });
     }
 
-    const { name, email, phone, libraryName } = req.body;
+    const { name, email, phone, libraryName, address } = req.body;
 
     if (name !== undefined) {
       user.name = name.trim();
@@ -186,6 +187,10 @@ exports.updateSettingsProfile = async (req, res) => {
 
     if (libraryName !== undefined) {
       library.name = libraryName.trim();
+    }
+
+    if (address !== undefined) {
+      library.address = address.trim();
     }
 
     await user.save();

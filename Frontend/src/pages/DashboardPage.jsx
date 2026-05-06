@@ -4,6 +4,30 @@ import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
+const initialMemberForm = {
+  name: "",
+  phone: "",
+  parentName: "",
+  parentPhone: "",
+  seatNumber: "",
+  hallName: "",
+  plan: "1 Month",
+  feeAmount: "",
+  shift: "FULL_DAY",
+  paidTill: "",
+  notes: ""
+};
+
+const initialLibraryForm = {
+  libraryName: "",
+  phone: "",
+  address: "",
+  subscriptionAmount: "500",
+  paymentScope: "NEW_LIBRARY",
+  paymentMethod: "CASH",
+  paymentReference: ""
+};
+
 const toneClasses = {
   green: "from-emerald-500 to-teal-600",
   blue: "from-blue-500 to-sky-600",
@@ -21,31 +45,33 @@ export default function DashboardPage() {
   const [activePromo, setActivePromo] = useState("");
   const [homeMode, setHomeMode] = useState(() => localStorage.getItem("brainbyte-home-mode") || "modern");
   const [actionMessage, setActionMessage] = useState("");
-  const [libraryForm, setLibraryForm] = useState({ libraryName: "", phone: "" });
+  const [memberForm, setMemberForm] = useState(initialMemberForm);
+  const [libraryForm, setLibraryForm] = useState(initialLibraryForm);
+  const [creatingMember, setCreatingMember] = useState(false);
   const [creatingLibrary, setCreatingLibrary] = useState(false);
   const [error, setError] = useState("");
 
+  const loadDashboard = async () => {
+    setError("");
+
+    try {
+      const [analyticsData, studentsData, paymentData, profileData] = await Promise.all([
+        apiRequest("/analytics/summary", { token }),
+        apiRequest("/students?sort=recent", { token }),
+        apiRequest("/payments?sort=latest", { token }),
+        apiRequest("/settings/profile", { token })
+      ]);
+
+      setAnalytics(analyticsData);
+      setStudents(studentsData.slice(0, 3));
+      setPayments(paymentData.slice(0, 3));
+      setLibraryProfile(profileData.library);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    }
+  };
+
   useEffect(() => {
-    const loadDashboard = async () => {
-      setError("");
-
-      try {
-        const [analyticsData, studentsData, paymentData, profileData] = await Promise.all([
-          apiRequest("/analytics/summary", { token }),
-          apiRequest("/students?sort=recent", { token }),
-          apiRequest("/payments?sort=latest", { token }),
-          apiRequest("/settings/profile", { token })
-        ]);
-
-        setAnalytics(analyticsData);
-        setStudents(studentsData.slice(0, 3));
-        setPayments(paymentData.slice(0, 3));
-        setLibraryProfile(profileData.library);
-      } catch (loadError) {
-        setError(getErrorMessage(loadError));
-      }
-    };
-
     loadDashboard();
   }, [token]);
 
@@ -57,6 +83,7 @@ export default function DashboardPage() {
   ];
   const referralCode = `BB-${String(user?.id || user?.libraryId || "ADMIN").slice(-6).toUpperCase()}`;
   const libraryName = libraryProfile?.name || "Brainbyte Library";
+  const libraryAddress = libraryProfile?.address || "Address not added";
   const normalizedPhone = String(libraryProfile?.phone || "").replace(/\D/g, "");
   const referralMessage = `Join ${libraryName} with my referral code ${referralCode}. Refer a new admission and earn INR 149 after successful registration.`;
   const communityMessage = `Hi, I want to join the ${libraryName} community for latest updates and library news.`;
@@ -64,6 +91,21 @@ export default function DashboardPage() {
     ? `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(communityMessage)}`
     : `https://wa.me/?text=${encodeURIComponent(communityMessage)}`;
   const referralWhatsAppLink = `https://wa.me/?text=${encodeURIComponent(referralMessage)}`;
+  const popupMeta = {
+    refer: ["REFERRAL", "Refer & Earn INR 149"],
+    community: ["COMMUNITY", "Join Community"],
+    owner: ["OWNER", "Owner Details"],
+    qr: ["QR CODE", "Library QR Code"],
+    branding: ["BRANDING", "Library Branding"],
+    help: ["SUPPORT", "Need Help?"],
+    rate: ["RATING", "Enjoying the App?"],
+    library: ["NEW LIBRARY", "Add Library"],
+    member: ["NEW MEMBER", "Add Member"]
+  };
+  const [popupEyebrow, popupTitle] = popupMeta[activePromo] || popupMeta.member;
+  const managedLibraryCount = user?.managedLibraryIds?.length || 1;
+  const paymentLibraryCount = libraryForm.paymentScope === "ALL_LIBRARIES" ? managedLibraryCount + 1 : 1;
+  const newLibraryPaymentTotal = Number(libraryForm.subscriptionAmount || 0) * paymentLibraryCount;
 
   const setDashboardMode = (mode) => {
     setHomeMode(mode);
@@ -96,6 +138,11 @@ export default function DashboardPage() {
     setActionMessage("");
   };
 
+  const handleMemberFormChange = (event) => {
+    const { name, value } = event.target;
+    setMemberForm((current) => ({ ...current, [name]: value }));
+  };
+
   const handleLibraryFormChange = (event) => {
     const { name, value } = event.target;
     setLibraryForm((current) => ({ ...current, [name]: value }));
@@ -111,17 +158,57 @@ export default function DashboardPage() {
       const data = await apiRequest("/auth/libraries", {
         method: "POST",
         token,
-        body: libraryForm
+        body: {
+          ...libraryForm,
+          subscriptionAmount: Number(libraryForm.subscriptionAmount)
+        }
       });
 
       setSession({ token: data.token, user: data.user });
-      setLibraryForm({ libraryName: "", phone: "" });
+      setLibraryForm(initialLibraryForm);
       setActivePromo("");
-      setActionMessage(`${data.library.name} workspace created.`);
+      setActionMessage(`${data.library.name} added. ${formatCurrency(data.payment.totalAmount)} collected for ${data.payment.libraryCount} librar${data.payment.libraryCount === 1 ? "y" : "ies"}.`);
+      navigate("/dashboard", { replace: true });
     } catch (createError) {
       setError(getErrorMessage(createError));
     } finally {
       setCreatingLibrary(false);
+    }
+  };
+
+  const handleCreateMember = async (event) => {
+    event.preventDefault();
+    setCreatingMember(true);
+    setError("");
+    setActionMessage("");
+
+    const payload = {
+      ...memberForm,
+      feeAmount: memberForm.feeAmount === "" ? undefined : Number(memberForm.feeAmount),
+      seatNumber: Number(memberForm.seatNumber)
+    };
+
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === "" || payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
+
+    try {
+      const student = await apiRequest("/students", {
+        method: "POST",
+        token,
+        body: payload
+      });
+
+      setMemberForm(initialMemberForm);
+      setActivePromo("");
+      setActionMessage(`${student.name} added as a new member.`);
+      loadDashboard();
+    } catch (createError) {
+      setError(getErrorMessage(createError));
+    } finally {
+      setCreatingMember(false);
     }
   };
 
@@ -143,6 +230,12 @@ export default function DashboardPage() {
 
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
       {actionMessage ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{actionMessage}</div> : null}
+
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/30 sm:rounded-[1.75rem] sm:p-5">
+        <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Current Library</p>
+        <h2 className="m-0 mt-1 break-words text-2xl font-black text-slate-950 sm:text-3xl">{libraryName}</h2>
+        <p className="m-0 mt-2 break-words text-sm font-bold text-slate-500 sm:text-base">{libraryAddress}</p>
+      </section>
 
       <section className="flex w-fit rounded-[1.35rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
         <button
@@ -198,8 +291,8 @@ export default function DashboardPage() {
         <section className="fixed left-1/2 top-24 z-50 grid max-h-[80vh] w-[min(92vw,560px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/30 sm:rounded-[1.75rem] sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">{activePromo === "refer" ? "REFERRAL" : activePromo === "community" ? "COMMUNITY" : activePromo === "owner" ? "OWNER" : "NEW LIBRARY"}</p>
-              <h3 className="m-0 break-words text-2xl font-extrabold">{activePromo === "refer" ? "Refer & Earn INR 149" : activePromo === "community" ? "Join Community" : activePromo === "owner" ? "Owner Details" : "Add Library"}</h3>
+              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">{popupEyebrow}</p>
+              <h3 className="m-0 break-words text-2xl font-extrabold">{popupTitle}</h3>
             </div>
             <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800" onClick={() => setActivePromo("")} type="button">
               Close
@@ -318,40 +411,143 @@ export default function DashboardPage() {
                 Rate App
               </button>
             </div>
-          ) : (
+          ) : activePromo === "library" ? (
             <form className="grid gap-4" onSubmit={handleCreateLibrary}>
-              <div className="grid gap-2">
-                <label className="font-semibold text-slate-600" htmlFor="new-library-name">Library Name</label>
-                <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-name" name="libraryName" value={libraryForm.libraryName} onChange={handleLibraryFormChange} required />
+              <div className="rounded-3xl border border-teal-100 bg-teal-50 p-4">
+                <p className="m-0 text-sm font-bold text-teal-800">
+                  This adds another library under the same admin login. Choose whether payment is only for the new library or for all libraries.
+                </p>
               </div>
-              <div className="grid gap-2">
-                <label className="font-semibold text-slate-600" htmlFor="new-library-phone">Library Phone</label>
-                <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-phone" name="phone" value={libraryForm.phone} onChange={handleLibraryFormChange} required />
+              <div className="grid gap-4 min-[520px]:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-name">Library Name</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-name" name="libraryName" value={libraryForm.libraryName} onChange={handleLibraryFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-phone">Library Phone</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-phone" name="phone" value={libraryForm.phone} onChange={handleLibraryFormChange} required />
+                </div>
+                <div className="grid gap-2 min-[520px]:col-span-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-address">Library Address</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-address" name="address" value={libraryForm.address} onChange={handleLibraryFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-amount">Amount Per Library</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-amount" name="subscriptionAmount" type="number" min="1" value={libraryForm.subscriptionAmount} onChange={handleLibraryFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-scope">Payment For</label>
+                  <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-scope" name="paymentScope" value={libraryForm.paymentScope} onChange={handleLibraryFormChange}>
+                    <option value="NEW_LIBRARY">New library only</option>
+                    <option value="ALL_LIBRARIES">All libraries</option>
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-method">Payment Method</label>
+                  <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-method" name="paymentMethod" value={libraryForm.paymentMethod} onChange={handleLibraryFormChange}>
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="CARD">Card</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                </div>
+                <div className="grid gap-2 min-[520px]:col-span-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-reference">Payment Reference</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-reference" name="paymentReference" placeholder="UPI ID, receipt number, or note" value={libraryForm.paymentReference} onChange={handleLibraryFormChange} />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <span className="font-bold text-slate-600">{paymentLibraryCount} librar{paymentLibraryCount === 1 ? "y" : "ies"} x {formatCurrency(libraryForm.subscriptionAmount || 0)}</span>
+                <strong className="text-xl font-black text-teal-700">Total {formatCurrency(newLibraryPaymentTotal)}</strong>
               </div>
               <button className="min-h-12 rounded-full bg-teal-700 px-5 font-extrabold text-white shadow-lg shadow-teal-700/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={creatingLibrary} type="submit">
-                {creatingLibrary ? "Creating..." : "Create Library"}
+                {creatingLibrary ? "Creating..." : "Add Library & Payment"}
+              </button>
+            </form>
+          ) : (
+            <form className="grid gap-4" onSubmit={handleCreateMember}>
+              <div className="grid gap-4 min-[520px]:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-name">Name</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-name" name="name" value={memberForm.name} onChange={handleMemberFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-phone">Phone</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-phone" name="phone" value={memberForm.phone} onChange={handleMemberFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-seat">Seat Number</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-seat" name="seatNumber" type="number" min="1" value={memberForm.seatNumber} onChange={handleMemberFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-hall">Hall Name</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-hall" name="hallName" placeholder="Main Hall" value={memberForm.hallName} onChange={handleMemberFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-plan">Plan</label>
+                  <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-plan" name="plan" value={memberForm.plan} onChange={handleMemberFormChange} required>
+                    <option value="1 Month">1 Month</option>
+                    <option value="2 Months">2 Months</option>
+                    <option value="3 Months">3 Months</option>
+                    <option value="6 Months">6 Months</option>
+                    <option value="12 Months">12 Months</option>
+                    <option value="Trial">Trial</option>
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-fee">Fee Amount</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-fee" name="feeAmount" type="number" min="0" value={memberForm.feeAmount} onChange={handleMemberFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-shift">Shift</label>
+                  <select className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-shift" name="shift" value={memberForm.shift} onChange={handleMemberFormChange}>
+                    <option value="FULL_DAY">Full Day</option>
+                    <option value="MORNING">Morning</option>
+                    <option value="EVENING">Evening</option>
+                    <option value="CUSTOM">Custom</option>
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-paidTill">Paid Till</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-paidTill" name="paidTill" type="date" value={memberForm.paidTill} onChange={handleMemberFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-parentName">Parent Name</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-parentName" name="parentName" value={memberForm.parentName} onChange={handleMemberFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-parentPhone">Parent Number</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-parentPhone" name="parentPhone" value={memberForm.parentPhone} onChange={handleMemberFormChange} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label className="font-semibold text-slate-600" htmlFor="new-member-notes">Notes</label>
+                <textarea className="min-h-24 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-notes" name="notes" value={memberForm.notes} onChange={handleMemberFormChange} />
+              </div>
+              <button className="min-h-12 rounded-full bg-teal-700 px-5 font-extrabold text-white shadow-lg shadow-teal-700/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={creatingMember} type="submit">
+                {creatingMember ? "Saving..." : "Add Member"}
               </button>
             </form>
           )}
         </section>
       ) : null}
 
-      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 sm:hidden" onClick={() => setActivePromo("library")} type="button">
+      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 sm:hidden" onClick={() => setActivePromo("member")} type="button">
         <span>+</span>
-        New Library
+        New Member
       </button>
 
       {homeMode === "classic" ? (
         <>
-          <section className="grid gap-5 rounded-[2rem] border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-300/30 min-[640px]:grid-cols-[minmax(0,1fr)_auto] min-[640px]:items-center">
+          <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-blue-400/30 bg-gradient-to-br from-zinc-950 via-slate-900 to-blue-950 p-6 text-white shadow-2xl shadow-blue-950/30 min-[640px]:grid-cols-[minmax(0,1fr)_auto] min-[640px]:items-center">
             <div className="min-w-0">
-              <span className="inline-flex rounded-full bg-cyan-50 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-700">Classic Command</span>
-              <h2 className="m-0 mt-5 text-4xl font-black leading-none">Library Control Room</h2>
-              <p className="m-0 mt-3 break-words text-lg font-bold text-slate-500">
+              <span className="inline-flex rounded-full bg-blue-400/15 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-100">Classic Suite</span>
+              <h2 className="m-0 mt-5 text-4xl font-black leading-none">Owner Console</h2>
+              <p className="m-0 mt-3 break-words text-lg font-bold text-blue-100/80">
                 {analytics?.activeStudents ?? 0} active | {formatCurrency(analytics?.todayRevenue)} earned today
               </p>
             </div>
-            <button className="grid h-16 w-16 place-items-center rounded-3xl bg-slate-950 text-3xl font-black text-white shadow-xl shadow-slate-400/30" onClick={() => navigate("/analytics")} type="button">
+            <button className="grid h-16 w-16 place-items-center rounded-3xl bg-amber-300 text-3xl font-black text-zinc-950 shadow-xl shadow-amber-300/25" onClick={() => navigate("/analytics")} type="button">
               &gt;
             </button>
           </section>
@@ -359,20 +555,20 @@ export default function DashboardPage() {
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Library Overview</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-lime-100 bg-lime-50/70 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => navigate("/students")} type="button">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-lime-700">A</span>
+              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-emerald-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-emerald-950/20" onClick={() => navigate("/students")} type="button">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-400/15 font-black text-emerald-200">A</span>
                 <span><strong className="block text-2xl font-black">{analytics?.activeStudents ?? 0}</strong><span className="font-extrabold text-slate-500">ACTIVE</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-cyan-100 bg-cyan-50/70 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => navigate("/payments")} type="button">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-cyan-700">T</span>
+              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-blue-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-blue-950/20" onClick={() => navigate("/payments")} type="button">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-200">T</span>
                 <span><strong className="block text-2xl font-black">{formatCurrency(analytics?.todayRevenue)}</strong><span className="font-extrabold text-slate-500">TODAY</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-rose-100 bg-rose-50/70 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => navigate("/analytics")} type="button">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-rose-700">M</span>
+              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-fuchsia-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-fuchsia-950/20" onClick={() => navigate("/analytics")} type="button">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-fuchsia-400/15 font-black text-fuchsia-200">M</span>
                 <span><strong className="block text-2xl font-black">{formatCurrency(analytics?.monthlyRevenue)}</strong><span className="font-extrabold text-slate-500">MONTHLY</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-indigo-100 bg-indigo-50/70 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => navigate("/students")} type="button">
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-indigo-700">S</span>
+              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-amber-300/30 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-amber-950/20" onClick={() => navigate("/students")} type="button">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 font-black text-amber-200">S</span>
                 <span><strong className="block text-2xl font-black">{analytics?.totalStudents ?? 0}</strong><span className="font-extrabold text-slate-500">TOTAL</span></span>
               </button>
             </div>
@@ -381,18 +577,18 @@ export default function DashboardPage() {
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Quick Actions</h3>
             <div className="grid gap-4 min-[680px]:grid-cols-3">
-              <button className="grid min-h-36 content-between rounded-[1.75rem] bg-slate-950 p-5 text-left text-white shadow-xl shadow-slate-400/30" onClick={() => navigate("/students?new=1")} type="button">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 font-black">+</span>
+              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-blue-400/20 bg-gradient-to-br from-zinc-950 to-blue-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => navigate("/students?new=1")} type="button">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-100">+</span>
                 <strong className="text-2xl font-black">Add Student</strong>
                 <span className="font-bold text-white/85">New admission</span>
               </button>
-              <button className="grid min-h-36 content-between rounded-[1.75rem] bg-cyan-700 p-5 text-left text-white shadow-xl shadow-cyan-700/20" onClick={() => navigate("/expenses")} type="button">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/15 font-black">E</span>
+              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-amber-300/20 bg-gradient-to-br from-zinc-950 to-amber-950 p-5 text-left text-white shadow-xl shadow-amber-950/25" onClick={() => navigate("/expenses")} type="button">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-300/15 font-black text-amber-100">E</span>
                 <strong className="text-2xl font-black">Log Expense</strong>
                 <span className="font-bold text-white/85">Track costs</span>
               </button>
-              <button className="grid min-h-36 content-between rounded-[1.75rem] bg-lime-600 p-5 text-left text-white shadow-xl shadow-lime-700/20" onClick={() => navigate("/analytics")} type="button">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/15 font-black">R</span>
+              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-fuchsia-400/20 bg-gradient-to-br from-zinc-950 to-fuchsia-950 p-5 text-left text-white shadow-xl shadow-fuchsia-950/25" onClick={() => navigate("/analytics")} type="button">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-fuchsia-400/15 font-black text-fuchsia-100">R</span>
                 <strong className="text-2xl font-black">View Reports</strong>
                 <span className="font-bold text-white/85">Deep insights</span>
               </button>
@@ -401,21 +597,21 @@ export default function DashboardPage() {
 
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Recommended</h3>
-            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-indigo-100 bg-white p-5 text-left text-slate-950 shadow-xl shadow-slate-300/25" onClick={() => openInfoPopup("refer")} type="button">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-indigo-50 font-black text-indigo-700">R</span>
-              <span className="min-w-0 flex-1"><strong className="block text-2xl font-black">Refer & Earn INR 149</strong><span className="font-bold text-slate-500">Get bonus on every successful referral</span></span>
+            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-blue-400/25 bg-zinc-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => openInfoPopup("refer")} type="button">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-100">R</span>
+              <span className="min-w-0 flex-1"><strong className="block text-2xl font-black">Refer & Earn INR 149</strong><span className="font-bold text-blue-100/70">Get bonus on every successful referral</span></span>
               <span className="text-3xl">&gt;</span>
             </button>
-            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-rose-100 bg-rose-50/60 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => navigate("/payments")} type="button">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-rose-600">!</span>
-              <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Pending Dues</strong><span className="font-bold text-slate-500">{formatCurrency(analytics?.totalDues)} from {analytics?.pendingStudents ?? 0} students</span></span>
-              <span className="rounded-full bg-rose-600 px-5 py-3 font-extrabold text-white">Collect</span>
+            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-rose-400/25 bg-rose-950 p-5 text-left text-white shadow-lg shadow-rose-950/25" onClick={() => navigate("/payments")} type="button">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-rose-100">!</span>
+              <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Pending Dues</strong><span className="font-bold text-rose-100/70">{formatCurrency(analytics?.totalDues)} from {analytics?.pendingStudents ?? 0} students</span></span>
+              <span className="rounded-full bg-white px-5 py-3 font-extrabold text-rose-800">Collect</span>
             </button>
           </section>
 
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Manage</h3>
-            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-300/25">
+            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
               {[
                 ["Students", "/students", "S"],
                 ["Seats", "/seats", "G"],
@@ -424,8 +620,8 @@ export default function DashboardPage() {
                 ["Analytics", "/analytics", "A"],
                 ["Student ID", "/students", "ID"]
               ].map(([label, path, icon]) => (
-                <button key={label} className="grid min-h-36 place-items-center gap-2 border-b border-r border-slate-100 p-4 font-black transition hover:bg-slate-50" onClick={() => navigate(path)} type="button">
-                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-cyan-50 text-cyan-700">{icon}</span>
+                <button key={label} className="grid min-h-36 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={() => navigate(path)} type="button">
+                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 text-blue-100">{icon}</span>
                   {label}
                 </button>
               ))}
@@ -434,7 +630,7 @@ export default function DashboardPage() {
 
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Tools & More</h3>
-            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-slate-300/25">
+            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
               {[
                 ["WhatsApp", "community", "W"],
                 ["QR Code", "qr", "QR"],
@@ -442,31 +638,31 @@ export default function DashboardPage() {
                 ["Refer & Earn", "refer", "R"],
                 ["Community", "community", "C"]
               ].map(([label, popup, icon]) => (
-                <button key={label} className="grid min-h-32 place-items-center gap-2 border-b border-r border-slate-100 p-4 font-black transition hover:bg-slate-50" onClick={() => openInfoPopup(popup)} type="button">
-                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-lime-50 text-lime-700">{icon}</span>
+                <button key={label} className="grid min-h-32 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={() => openInfoPopup(popup)} type="button">
+                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 text-amber-100">{icon}</span>
                   {label}
                 </button>
               ))}
             </div>
           </section>
 
-          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-cyan-100 bg-cyan-50/60 p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => openInfoPopup("help")} type="button">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white font-black text-cyan-700">H</span>
-            <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Need Help?</strong><span className="font-bold text-slate-500">Support is one message away</span></span>
+          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-emerald-400/25 bg-emerald-950 p-5 text-left text-white shadow-lg shadow-emerald-950/25" onClick={() => openInfoPopup("help")} type="button">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-emerald-100">H</span>
+            <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Need Help?</strong><span className="font-bold text-emerald-100/70">Support is one message away</span></span>
           </button>
 
-          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 text-left shadow-lg shadow-slate-300/20" onClick={() => openInfoPopup("refer")} type="button">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-950 font-black text-white">I</span>
-            <span className="min-w-0 flex-1"><strong className="block text-xl font-black text-slate-950">Invite a Friend</strong><span className="font-bold text-slate-500">Help other library owners simplify work.</span></span>
+          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-blue-400/25 bg-blue-950 p-5 text-left text-white shadow-lg shadow-blue-950/25" onClick={() => openInfoPopup("refer")} type="button">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-blue-100">I</span>
+            <span className="min-w-0 flex-1"><strong className="block text-xl font-black text-white">Invite a Friend</strong><span className="font-bold text-blue-100/70">Help other library owners simplify work.</span></span>
           </button>
 
-          <button className="grid gap-3 rounded-[1.75rem] border border-lime-100 bg-lime-50/70 p-6 text-center shadow-lg shadow-slate-300/20" onClick={() => openInfoPopup("rate")} type="button">
-            <strong className="text-3xl text-lime-700">5 Stars</strong>
-            <span className="text-xl font-black text-slate-950">Enjoying the App?</span>
-            <span className="font-bold text-slate-600">Your rating helps us grow.</span>
+          <button className="grid gap-3 rounded-[1.75rem] border border-amber-300/25 bg-amber-950 p-6 text-center text-white shadow-lg shadow-amber-950/25" onClick={() => openInfoPopup("rate")} type="button">
+            <strong className="text-3xl text-amber-200">5 Stars</strong>
+            <span className="text-xl font-black">Enjoying the App?</span>
+            <span className="font-bold text-amber-100/70">Your rating helps us grow.</span>
           </button>
 
-          <p className="m-0 pb-10 text-center font-bold text-slate-500">Made with care in India<br />Version 4.0.1</p>
+          <p className="m-0 pb-10 text-center font-bold text-slate-500">Brainbyte Library Suite<br />Version 4.0.1</p>
         </>
       ) : (
       <>

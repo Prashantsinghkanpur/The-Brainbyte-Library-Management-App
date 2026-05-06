@@ -7,7 +7,8 @@ const initialProfile = {
   name: "",
   email: "",
   phone: "",
-  libraryName: ""
+  libraryName: "",
+  address: ""
 };
 
 const loadRazorpayCheckout = () =>
@@ -55,7 +56,8 @@ export default function SettingsPage() {
         name: profileData.user.name || "",
         email: profileData.user.email || "",
         phone: profileData.library.phone || "",
-        libraryName: profileData.library.name || ""
+        libraryName: profileData.library.name || "",
+        address: profileData.library.address || ""
       });
       setThemeMode(profileData.user.themeMode || "SYSTEM");
       setSubscription(subscriptionData);
@@ -97,7 +99,8 @@ export default function SettingsPage() {
         name: data.user.name || "",
         email: data.user.email || "",
         phone: data.library.phone || "",
-        libraryName: data.library.name || ""
+        libraryName: data.library.name || "",
+        address: data.library.address || ""
       });
       patchUser((currentUser) => ({
         ...currentUser,
@@ -359,6 +362,10 @@ export default function SettingsPage() {
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="settings-phone">Phone</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="settings-phone" name="phone" value={profile.phone} onChange={handleProfileChange} />
+            </div>
+            <div className="grid gap-2 min-[520px]:col-span-2">
+              <label className="font-semibold text-slate-600" htmlFor="settings-address">Library Address</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="settings-address" name="address" value={profile.address} onChange={handleProfileChange} />
             </div>
           </div>
 

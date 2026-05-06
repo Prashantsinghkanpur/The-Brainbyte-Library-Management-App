@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Library = require("../models/Library");
+const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -18,7 +19,7 @@ const buildAuthResponse = (user) => ({
 
 // REGISTER
 exports.register = async (req, res) => {
-  const { name, email, password, libraryName, phone } = req.body;
+  const { name, email, password, libraryName, phone, address } = req.body;
 
   try {
     if (!process.env.JWT_SECRET) {
@@ -40,7 +41,8 @@ exports.register = async (req, res) => {
     const library = await Library.create({
       name: libraryName.trim(),
       ownerName: name.trim(),
-      phone: phone.trim()
+      phone: phone.trim(),
+      address: address?.trim() || ""
     });
 
     // hash password
@@ -118,16 +120,32 @@ exports.login = async (req, res) => {
 };
 
 exports.createOwnerLibrary = async (req, res) => {
-  const { libraryName, phone } = req.body;
+  const {
+    libraryName,
+    address,
+    phone,
+    subscriptionAmount,
+    paymentMethod,
+    paymentReference,
+    paymentScope = "NEW_LIBRARY"
+  } = req.body;
 
   try {
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ msg: "JWT secret is not configured" });
     }
 
-    if (!libraryName || !phone) {
-      return res.status(400).json({ msg: "libraryName and phone are required" });
+    if (!libraryName || !phone || subscriptionAmount === undefined) {
+      return res.status(400).json({ msg: "libraryName, phone and subscriptionAmount are required" });
     }
+
+    const numericAmount = Number(subscriptionAmount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ msg: "subscriptionAmount must be a positive number" });
+    }
+
+    const normalizedPaymentScope = paymentScope === "ALL_LIBRARIES" ? "ALL_LIBRARIES" : "NEW_LIBRARY";
 
     const user = await User.findById(req.user.userId);
 
@@ -135,22 +153,68 @@ exports.createOwnerLibrary = async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    const library = await Library.create({
-      name: libraryName.trim(),
-      ownerName: user.name,
-      phone: phone.trim()
-    });
+    let library;
+    let createdPaymentIds = [];
 
-    user.libraryId = library._id;
-    const existingLibraryIds = (user.managedLibraryIds?.length ? user.managedLibraryIds : [req.user.libraryId])
-      .map((id) => id.toString());
+    try {
+      library = await Library.create({
+        name: libraryName.trim(),
+        ownerName: user.name,
+        phone: phone.trim(),
+        address: address?.trim() || ""
+      });
 
-    if (!existingLibraryIds.includes(library._id.toString())) {
-      existingLibraryIds.push(library._id.toString());
+      const renewsAt = new Date();
+      renewsAt.setDate(renewsAt.getDate() + 30);
+
+      const existingLibraryIds = (user.managedLibraryIds?.length ? user.managedLibraryIds : [req.user.libraryId])
+        .map((id) => id.toString());
+
+      const paidLibraryIds = normalizedPaymentScope === "ALL_LIBRARIES"
+        ? [...new Set([...existingLibraryIds, library._id.toString()])]
+        : [library._id.toString()];
+
+      const paymentBatch = `${library._id}_${Date.now()}`;
+      const payments = await AppSubscriptionPayment.insertMany(
+        paidLibraryIds.map((libraryId, index) => ({
+          userId: user._id,
+          libraryId,
+          amount: numericAmount,
+          status: "PAID",
+          razorpayOrderId: paymentReference?.trim()
+            ? `manual_${paymentBatch}_${index}_${paymentReference.trim()}`
+            : `manual_${paymentBatch}_${index}`,
+          razorpayPaymentId: paymentMethod?.trim() || "MANUAL",
+          razorpaySignature: paymentReference?.trim() || "manual-entry",
+          paidAt: new Date(),
+          renewsAt
+        }))
+      );
+
+      createdPaymentIds = payments.map((payment) => payment._id);
+
+      user.libraryId = library._id;
+      user.subscriptionPlan = "PRO";
+      user.subscriptionStatus = "ACTIVE";
+      user.subscriptionRenewsAt = renewsAt;
+
+      if (!existingLibraryIds.includes(library._id.toString())) {
+        existingLibraryIds.push(library._id.toString());
+      }
+
+      user.managedLibraryIds = existingLibraryIds;
+      await user.save();
+    } catch (err) {
+      if (library?._id) {
+        await Library.findByIdAndDelete(library._id);
+      }
+
+      if (createdPaymentIds.length) {
+        await AppSubscriptionPayment.deleteMany({ _id: { $in: createdPaymentIds } });
+      }
+
+      throw err;
     }
-
-    user.managedLibraryIds = existingLibraryIds;
-    await user.save();
 
     const token = jwt.sign(
       { userId: user._id, libraryId: user.libraryId },
@@ -161,7 +225,16 @@ exports.createOwnerLibrary = async (req, res) => {
     res.status(201).json({
       token,
       user: buildAuthResponse(user),
-      library
+      library,
+      payment: {
+        amount: numericAmount,
+        totalAmount: numericAmount * (createdPaymentIds.length || 1),
+        currency: "INR",
+        scope: normalizedPaymentScope,
+        libraryCount: createdPaymentIds.length || 1,
+        status: "PAID",
+        renewsAt: user.subscriptionRenewsAt
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

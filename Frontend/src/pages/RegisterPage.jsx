@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/format";
+import { LogoButton, LogoPopup } from "../components/LogoPreview";
 
 const initialForm = {
   name: "",
   email: "",
   password: "",
   libraryName: "",
-  phone: ""
+  phone: "",
+  address: ""
 };
 
 const inputClass =
@@ -20,6 +22,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLogoOpen, setIsLogoOpen] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -45,7 +48,11 @@ export default function RegisterPage() {
     <div className="grid min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100 lg:grid-cols-[minmax(320px,0.9fr)_minmax(360px,1.1fr)]">
       <section className="flex min-h-[30vh] flex-col justify-between gap-6 bg-gradient-to-b from-slate-200 to-slate-100 p-5 dark:from-slate-900 dark:to-slate-800 sm:min-h-[34vh] sm:p-6 lg:min-h-screen lg:p-14">
         <div className="min-w-0">
-          <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-sky-500 font-extrabold text-white shadow-lg shadow-teal-700/15 sm:mb-6">BB</div>
+          <LogoButton
+            buttonClassName="mb-5 grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-teal-700/15 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-teal-100 dark:focus:ring-teal-900/50 sm:mb-6"
+            imageClassName="h-full w-full object-contain"
+            onClick={() => setIsLogoOpen(true)}
+          />
           <h1 className="m-0 max-w-xl break-words text-3xl font-extrabold leading-tight min-[380px]:text-4xl">Create the operating system for your study hall.</h1>
           <p className="mt-4 max-w-xl break-words text-sm text-slate-600 dark:text-slate-300 sm:text-base">Start with your library profile, then we'll help you organize students, seats, and finances.</p>
         </div>
@@ -81,6 +88,10 @@ export default function RegisterPage() {
               <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="phone">Phone</label>
               <input className={inputClass} id="phone" name="phone" value={form.phone} onChange={handleChange} required />
             </div>
+            <div className="grid gap-2 min-[520px]:col-span-2">
+              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="address">Library address</label>
+              <input className={inputClass} id="address" name="address" value={form.address} onChange={handleChange} />
+            </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="password">Password</label>
               <input className={inputClass} id="password" name="password" type="password" value={form.password} onChange={handleChange} required />
@@ -96,6 +107,7 @@ export default function RegisterPage() {
           </p>
         </form>
       </section>
+      <LogoPopup isOpen={isLogoOpen} onClose={() => setIsLogoOpen(false)} />
     </div>
   );
 }
