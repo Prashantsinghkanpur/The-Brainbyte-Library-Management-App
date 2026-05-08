@@ -1,14 +1,46 @@
 const User = require("../models/User");
 const Library = require("../models/Library");
+const Hall = require("../models/Hall");
 const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const crypto = require("crypto");
 const https = require("https");
 
 const SUBSCRIPTION_DAYS = 30;
+const MAX_LOGO_DATA_URL_LENGTH = 350000;
+const LOGO_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 
 const getSubscriptionAmount = () => {
   const amount = Number(process.env.APP_SUBSCRIPTION_AMOUNT || 499);
   return Number.isFinite(amount) && amount > 0 ? amount : 499;
+};
+
+const getPerSeatSubscriptionAmount = () => {
+  const amount = Number(process.env.APP_SUBSCRIPTION_AMOUNT_PER_SEAT || 0);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+};
+
+const normalizeSeatCount = (value) => {
+  const seatCount = Number(value);
+  return Number.isInteger(seatCount) && seatCount > 0 ? seatCount : null;
+};
+
+const getSubscriptionPricing = (library) => {
+  const seatCount = Math.max(1, Number(library?.seatCount || 0));
+  const amountPerSeat = getPerSeatSubscriptionAmount();
+
+  if (amountPerSeat > 0) {
+    return {
+      amount: amountPerSeat * seatCount,
+      amountPerSeat,
+      seatCount
+    };
+  }
+
+  return {
+    amount: getSubscriptionAmount(),
+    amountPerSeat: 0,
+    seatCount
+  };
 };
 
 const getRazorpayCredentials = () => {
@@ -100,6 +132,8 @@ const buildSettingsResponse = (user, library) => ({
     ownerName: library.ownerName,
     phone: library.phone,
     address: library.address || "",
+    seatCount: library.seatCount || 0,
+    logoDataUrl: library.logoDataUrl || "",
     createdAt: library.createdAt
   }
 });
@@ -124,7 +158,7 @@ const refreshExpiredSubscription = (user) => {
   }
 };
 
-const buildSubscriptionResponse = (user) => {
+const buildSubscriptionResponse = (user, libraryOrPayment = null) => {
   const renewsInDays = user.subscriptionRenewsAt
     ? Math.max(
         0,
@@ -135,11 +169,20 @@ const buildSubscriptionResponse = (user) => {
       )
     : 0;
 
+  const pricing = libraryOrPayment?.amountPerSeat
+    ? {
+        amount: libraryOrPayment.amount,
+        amountPerSeat: libraryOrPayment.amountPerSeat,
+        seatCount: libraryOrPayment.seatCount
+      }
+    : getSubscriptionPricing(libraryOrPayment);
+
   return {
     plan: user.subscriptionPlan,
     status: user.subscriptionStatus,
     renewsAt: user.subscriptionRenewsAt,
-    renewsInDays
+    renewsInDays,
+    ...pricing
   };
 };
 
@@ -170,7 +213,7 @@ exports.updateSettingsProfile = async (req, res) => {
       return res.status(404).json({ msg: "Profile not found" });
     }
 
-    const { name, email, phone, libraryName, address } = req.body;
+    const { name, email, phone, libraryName, address, seatCount, logoDataUrl } = req.body;
 
     if (name !== undefined) {
       user.name = name.trim();
@@ -191,6 +234,50 @@ exports.updateSettingsProfile = async (req, res) => {
 
     if (address !== undefined) {
       library.address = address.trim();
+    }
+
+    if (seatCount !== undefined) {
+      const normalizedSeatCount = normalizeSeatCount(seatCount);
+
+      if (!normalizedSeatCount) {
+        return res.status(400).json({ msg: "seatCount must be a positive whole number" });
+      }
+
+      library.seatCount = normalizedSeatCount;
+
+      const halls = await Hall.find({
+        libraryId: library._id,
+        isActive: true
+      }).sort({ createdAt: 1 });
+      const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
+
+      if (halls.length === 0) {
+        await Hall.create({
+          libraryId: library._id,
+          name: "Main Hall",
+          totalSeats: normalizedSeatCount
+        });
+      } else if (totalHallSeats < normalizedSeatCount) {
+        const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
+        mainHall.totalSeats += normalizedSeatCount - totalHallSeats;
+        await mainHall.save();
+      }
+    }
+
+    if (logoDataUrl !== undefined) {
+      const normalizedLogo = String(logoDataUrl || "").trim();
+
+      if (
+        normalizedLogo &&
+        (
+          normalizedLogo.length > MAX_LOGO_DATA_URL_LENGTH ||
+          !LOGO_DATA_URL_PATTERN.test(normalizedLogo)
+        )
+      ) {
+        return res.status(400).json({ msg: "Logo must be a PNG, JPG, WEBP, or GIF image under 350 KB" });
+      }
+
+      library.logoDataUrl = normalizedLogo;
     }
 
     await user.save();
@@ -247,7 +334,8 @@ exports.getSubscription = async (req, res) => {
       await user.save();
     }
 
-    res.json(buildSubscriptionResponse(user));
+    const library = await Library.findById(user.libraryId);
+    res.json(buildSubscriptionResponse(user, library));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -283,7 +371,8 @@ exports.updateSubscription = async (req, res) => {
 
     await user.save();
 
-    res.json(buildSubscriptionResponse(user));
+    const library = await Library.findById(user.libraryId);
+    res.json(buildSubscriptionResponse(user, library));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -297,7 +386,13 @@ exports.createSubscriptionOrder = async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    const amount = getSubscriptionAmount();
+    const library = await Library.findById(user.libraryId);
+
+    if (!library) {
+      return res.status(404).json({ msg: "Library not found" });
+    }
+
+    const { amount, amountPerSeat, seatCount } = getSubscriptionPricing(library);
     const amountInPaise = Math.round(amount * 100);
     const receipt = `sub_${user._id}_${Date.now()}`.slice(0, 40);
     const order = await createRazorpayOrder({
@@ -307,6 +402,8 @@ exports.createSubscriptionOrder = async (req, res) => {
       notes: {
         userId: user._id.toString(),
         libraryId: user.libraryId.toString(),
+        seatCount: String(seatCount),
+        amountPerSeat: String(amountPerSeat),
         plan: "PRO"
       }
     });
@@ -315,6 +412,8 @@ exports.createSubscriptionOrder = async (req, res) => {
       userId: user._id,
       libraryId: user.libraryId,
       amount,
+      seatCount,
+      amountPerSeat,
       currency: order.currency || "INR",
       razorpayOrderId: order.id,
       status: "CREATED"
@@ -327,8 +426,12 @@ exports.createSubscriptionOrder = async (req, res) => {
       currency: order.currency,
       plan: "PRO",
       displayAmount: amount,
+      seatCount,
+      amountPerSeat,
       name: "Brainbyte Pro",
-      description: `${SUBSCRIPTION_DAYS}-day app subscription`
+      description: amountPerSeat > 0
+        ? `${SUBSCRIPTION_DAYS}-day app subscription for ${seatCount} seats`
+        : `${SUBSCRIPTION_DAYS}-day app subscription`
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -364,7 +467,7 @@ exports.verifySubscriptionPayment = async (req, res) => {
     }
 
     if (paymentRecord.status === "PAID") {
-      return res.json(buildSubscriptionResponse(user));
+      return res.json(buildSubscriptionResponse(user, paymentRecord));
     }
 
     const { keySecret } = getRazorpayCredentials();
@@ -399,7 +502,7 @@ exports.verifySubscriptionPayment = async (req, res) => {
     await paymentRecord.save();
     await user.save();
 
-    res.json(buildSubscriptionResponse(user));
+    res.json(buildSubscriptionResponse(user, paymentRecord));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -417,6 +520,8 @@ exports.getBillingHistory = async (req, res) => {
       id: payment._id,
       type: "APP_SUBSCRIPTION",
       amount: payment.amount,
+      seatCount: payment.seatCount || 0,
+      amountPerSeat: payment.amountPerSeat || 0,
       method: "RAZORPAY",
       status: payment.status,
       paymentDate: payment.paidAt || payment.createdAt,

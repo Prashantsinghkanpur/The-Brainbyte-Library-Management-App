@@ -4,7 +4,15 @@ import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
 import { getStudentMessageActions } from "../lib/messages";
 
-const initialForm = {
+const toDateInputDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const getTodayDateInput = () => toDateInputDate(new Date());
+
+const createInitialForm = () => ({
   name: "",
   phone: "",
   parentName: "",
@@ -15,10 +23,12 @@ const initialForm = {
   paidTill: "",
   hallName: "",
   shift: "FULL_DAY",
-  joinedDate: "",
+  joinedDate: getTodayDateInput(),
   membershipStartDate: "",
   notes: ""
-};
+});
+
+const initialForm = createInitialForm();
 
 const initialFilters = {
   search: "",
@@ -27,6 +37,54 @@ const initialFilters = {
   hallName: "",
   paymentStatus: "",
   sort: "recent"
+};
+
+const getTenDigitPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 10);
+const isTenDigitPhone = (value) => /^\d{10}$/.test(String(value || ""));
+
+const getPlanDays = (plan) => {
+  const months = Number(String(plan || "").match(/\d+/)?.[0] || 0);
+  return months > 0 ? months * 30 : 0;
+};
+
+const getPaidTillFromPlan = (startDate, plan) => {
+  const days = getPlanDays(plan);
+  const date = new Date(startDate);
+
+  if (!days || Number.isNaN(date.getTime())) return "";
+
+  date.setDate(date.getDate() + days - 1);
+  return toDateInputDate(date);
+};
+
+const getSeatOccupancyLabel = (paidTill) => {
+  if (!paidTill) return { text: "No paid date added", tone: "slate" };
+
+  const endDate = new Date(paidTill);
+
+  if (Number.isNaN(endDate.getTime())) return { text: "No paid date added", tone: "slate" };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+
+  const days = Math.round((endDate - today) / 86400000);
+
+  if (days < 0) {
+    const overdueDays = Math.abs(days);
+    return { text: `Overdue by ${overdueDays} day${overdueDays === 1 ? "" : "s"}`, tone: "red" };
+  }
+
+  if (days === 0) return { text: "Seat occupied until today", tone: "amber" };
+
+  return { text: `${days} day${days === 1 ? "" : "s"} left for occupied seat`, tone: "green" };
+};
+
+const occupancyToneClasses = {
+  amber: "bg-amber-50 text-amber-700",
+  green: "bg-emerald-50 text-emerald-700",
+  red: "bg-red-50 text-red-700",
+  slate: "bg-slate-100 text-slate-600"
 };
 
 export default function StudentsPage() {
@@ -105,11 +163,20 @@ export default function StudentsPage() {
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const nextValue = name === "phone" || name === "parentPhone" ? getTenDigitPhone(value) : value;
+    setForm((current) => {
+      const nextForm = { ...current, [name]: nextValue };
+
+      if ((name === "joinedDate" || name === "plan") && !current.paidTill) {
+        nextForm.paidTill = getPaidTillFromPlan(nextForm.joinedDate, nextForm.plan);
+      }
+
+      return nextForm;
+    });
   };
 
   const resetForm = () => {
-    setForm(initialForm);
+    setForm(createInitialForm());
     setEditingId("");
   };
 
@@ -165,8 +232,28 @@ export default function StudentsPage() {
     setError("");
     setSuccess("");
 
+    if (!isTenDigitPhone(form.phone)) {
+      setError("Student phone number must be exactly 10 digits.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (form.parentPhone && !isTenDigitPhone(form.parentPhone)) {
+      setError("Parent phone number must be exactly 10 digits.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!form.joinedDate) {
+      setError("Joining date is required.");
+      setSubmitting(false);
+      return;
+    }
+
     const payload = {
       ...form,
+      membershipStartDate: form.membershipStartDate || form.joinedDate,
+      paidTill: form.paidTill || getPaidTillFromPlan(form.joinedDate, form.plan) || undefined,
       feeAmount: form.feeAmount === "" ? undefined : Number(form.feeAmount),
       seatNumber: Number(form.seatNumber)
     };
@@ -234,7 +321,9 @@ export default function StudentsPage() {
       {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
       {viewingStudent ? (
-        <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+        <>
+        <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={() => setViewingStudent(null)} type="button" aria-label="Close student details" />
+        <section className="fixed left-1/2 top-6 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER #{viewingStudent.memberId}</p>
@@ -255,6 +344,9 @@ export default function StudentsPage() {
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">{viewingStudent.status}</span>
                 <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{formatCurrency(viewingStudent.feeAmount)}</span>
+                <span className={`inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-extrabold ${occupancyToneClasses[getSeatOccupancyLabel(viewingStudent.paidTill).tone]}`}>
+                  {getSeatOccupancyLabel(viewingStudent.paidTill).text}
+                </span>
               </div>
             </div>
           </div>
@@ -305,6 +397,10 @@ export default function StudentsPage() {
               <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.paidTill)}</p>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat Occupancy</span>
+              <p className="m-0 mt-1 break-words">{getSeatOccupancyLabel(viewingStudent.paidTill).text}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Created</span>
               <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.createdAt)}</p>
             </div>
@@ -332,6 +428,7 @@ export default function StudentsPage() {
             </button>
           </div>
         </section>
+        </>
       ) : null}
 
       <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
@@ -407,6 +504,7 @@ export default function StudentsPage() {
         <div className="grid gap-4">
           {students.map((student) => {
             const actions = getStudentMessageActions(student);
+            const occupancy = getSeatOccupancyLabel(student.paidTill);
 
             return (
               <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={student._id}>
@@ -452,6 +550,9 @@ export default function StudentsPage() {
                     <p className="m-0 mt-1 break-words">
                       {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
                     </p>
+                    <span className={`mt-3 inline-flex rounded-full px-3 py-2 text-xs font-extrabold ${occupancyToneClasses[occupancy.tone]}`}>
+                      {occupancy.text}
+                    </span>
                   </div>
                   <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-5 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5" onClick={() => handleEdit(student)} type="button">
                     Edit
@@ -507,7 +608,7 @@ export default function StudentsPage() {
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-phone">Phone</label>
-              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-phone" name="phone" value={form.phone} onChange={handleFormChange} required />
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-phone" name="phone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={form.phone} onChange={handleFormChange} required />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-parentName">Parent Name</label>
@@ -515,7 +616,7 @@ export default function StudentsPage() {
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-parentPhone">Parent Number</label>
-              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentPhone" name="parentPhone" value={form.parentPhone} onChange={handleFormChange} />
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentPhone" name="parentPhone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={form.parentPhone} onChange={handleFormChange} />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-seat">Seat Number</label>
@@ -529,6 +630,10 @@ export default function StudentsPage() {
                   <option key={hall._id} value={hall.name} />
                 ))}
               </datalist>
+            </div>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-joinedDate">Joining Date</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-joinedDate" name="joinedDate" type="date" value={form.joinedDate} onChange={handleFormChange} required />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-plan">Plan</label>

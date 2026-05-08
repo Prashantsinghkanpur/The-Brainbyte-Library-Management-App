@@ -12,7 +12,7 @@ module.exports = (req, res, next) => {
     return res.status(401).json({ msg: "No token provided" });
   }
 
-  // 🔥 handle Bearer format
+  // Handle Bearer token format.
   if (token.startsWith("Bearer ")) {
     token = token.split(" ")[1];
   }

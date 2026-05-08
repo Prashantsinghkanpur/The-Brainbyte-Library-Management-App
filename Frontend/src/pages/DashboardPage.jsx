@@ -4,7 +4,15 @@ import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
-const initialMemberForm = {
+const toDateInputDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const getTodayDateInput = () => toDateInputDate(new Date());
+
+const createInitialMemberForm = () => ({
   name: "",
   phone: "",
   parentName: "",
@@ -14,14 +22,18 @@ const initialMemberForm = {
   plan: "1 Month",
   feeAmount: "",
   shift: "FULL_DAY",
+  joinedDate: getTodayDateInput(),
   paidTill: "",
   notes: ""
-};
+});
+
+const initialMemberForm = createInitialMemberForm();
 
 const initialLibraryForm = {
   libraryName: "",
   phone: "",
   address: "",
+  seatCount: "",
   subscriptionAmount: "500",
   paymentScope: "NEW_LIBRARY",
   paymentMethod: "CASH",
@@ -35,6 +47,24 @@ const toneClasses = {
   orange: "from-amber-400 to-orange-500"
 };
 
+const getTenDigitPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 10);
+const isTenDigitPhone = (value) => /^\d{10}$/.test(String(value || ""));
+
+const getPlanDays = (plan) => {
+  const months = Number(String(plan || "").match(/\d+/)?.[0] || 0);
+  return months > 0 ? months * 30 : 0;
+};
+
+const getPaidTillFromPlan = (startDate, plan) => {
+  const days = getPlanDays(plan);
+  const date = new Date(startDate);
+
+  if (!days || Number.isNaN(date.getTime())) return "";
+
+  date.setDate(date.getDate() + days - 1);
+  return toDateInputDate(date);
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token, user, setSession } = useAuth();
@@ -42,6 +72,7 @@ export default function DashboardPage() {
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
   const [libraryProfile, setLibraryProfile] = useState(null);
+  const [ownerLibraries, setOwnerLibraries] = useState([]);
   const [activePromo, setActivePromo] = useState("");
   const [homeMode, setHomeMode] = useState(() => localStorage.getItem("brainbyte-home-mode") || "modern");
   const [actionMessage, setActionMessage] = useState("");
@@ -55,17 +86,19 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const [analyticsData, studentsData, paymentData, profileData] = await Promise.all([
+      const [analyticsData, studentsData, paymentData, profileData, librariesData] = await Promise.all([
         apiRequest("/analytics/summary", { token }),
         apiRequest("/students?sort=recent", { token }),
         apiRequest("/payments?sort=latest", { token }),
-        apiRequest("/settings/profile", { token })
+        apiRequest("/settings/profile", { token }),
+        apiRequest("/auth/libraries", { token })
       ]);
 
       setAnalytics(analyticsData);
       setStudents(studentsData.slice(0, 3));
       setPayments(paymentData.slice(0, 3));
       setLibraryProfile(profileData.library);
+      setOwnerLibraries(librariesData.libraries || []);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     }
@@ -84,6 +117,7 @@ export default function DashboardPage() {
   const referralCode = `BB-${String(user?.id || user?.libraryId || "ADMIN").slice(-6).toUpperCase()}`;
   const libraryName = libraryProfile?.name || "Brainbyte Library";
   const libraryAddress = libraryProfile?.address || "Address not added";
+  const libraryInitials = libraryName.slice(0, 2).toUpperCase();
   const normalizedPhone = String(libraryProfile?.phone || "").replace(/\D/g, "");
   const referralMessage = `Join ${libraryName} with my referral code ${referralCode}. Refer a new admission and earn INR 149 after successful registration.`;
   const communityMessage = `Hi, I want to join the ${libraryName} community for latest updates and library news.`;
@@ -99,13 +133,18 @@ export default function DashboardPage() {
     branding: ["BRANDING", "Library Branding"],
     help: ["SUPPORT", "Need Help?"],
     rate: ["RATING", "Enjoying the App?"],
-    library: ["NEW LIBRARY", "Add Library"],
-    member: ["NEW MEMBER", "Add Member"]
+    member: ["NEW MEMBER", "Add Member"],
+    library: ["NEW LIBRARY", "Add Library"]
   };
   const [popupEyebrow, popupTitle] = popupMeta[activePromo] || popupMeta.member;
   const managedLibraryCount = user?.managedLibraryIds?.length || 1;
   const paymentLibraryCount = libraryForm.paymentScope === "ALL_LIBRARIES" ? managedLibraryCount + 1 : 1;
-  const newLibraryPaymentTotal = Number(libraryForm.subscriptionAmount || 0) * paymentLibraryCount;
+  const newLibrarySeatCount = Number(libraryForm.seatCount || 0);
+  const existingSeatCount = ownerLibraries.reduce((sum, library) => sum + Math.max(1, Number(library.seatCount || 0)), 0);
+  const billedSeatCount = libraryForm.paymentScope === "ALL_LIBRARIES"
+    ? existingSeatCount + newLibrarySeatCount
+    : newLibrarySeatCount;
+  const newLibraryPaymentTotal = Number(libraryForm.subscriptionAmount || 0) * billedSeatCount;
 
   const setDashboardMode = (mode) => {
     setHomeMode(mode);
@@ -140,7 +179,16 @@ export default function DashboardPage() {
 
   const handleMemberFormChange = (event) => {
     const { name, value } = event.target;
-    setMemberForm((current) => ({ ...current, [name]: value }));
+    const nextValue = name === "phone" || name === "parentPhone" ? getTenDigitPhone(value) : value;
+    setMemberForm((current) => {
+      const nextForm = { ...current, [name]: nextValue };
+
+      if ((name === "joinedDate" || name === "plan") && !current.paidTill) {
+        nextForm.paidTill = getPaidTillFromPlan(nextForm.joinedDate, nextForm.plan);
+      }
+
+      return nextForm;
+    });
   };
 
   const handleLibraryFormChange = (event) => {
@@ -160,6 +208,7 @@ export default function DashboardPage() {
         token,
         body: {
           ...libraryForm,
+          seatCount: Number(libraryForm.seatCount),
           subscriptionAmount: Number(libraryForm.subscriptionAmount)
         }
       });
@@ -167,7 +216,7 @@ export default function DashboardPage() {
       setSession({ token: data.token, user: data.user });
       setLibraryForm(initialLibraryForm);
       setActivePromo("");
-      setActionMessage(`${data.library.name} added. ${formatCurrency(data.payment.totalAmount)} collected for ${data.payment.libraryCount} librar${data.payment.libraryCount === 1 ? "y" : "ies"}.`);
+      setActionMessage(`${data.library.name} added with ${data.library.seatCount} seats. ${formatCurrency(data.payment.totalAmount)} collected for ${data.payment.libraryCount} librar${data.payment.libraryCount === 1 ? "y" : "ies"}.`);
       navigate("/dashboard", { replace: true });
     } catch (createError) {
       setError(getErrorMessage(createError));
@@ -182,8 +231,28 @@ export default function DashboardPage() {
     setError("");
     setActionMessage("");
 
+    if (!isTenDigitPhone(memberForm.phone)) {
+      setError("Member phone number must be exactly 10 digits.");
+      setCreatingMember(false);
+      return;
+    }
+
+    if (memberForm.parentPhone && !isTenDigitPhone(memberForm.parentPhone)) {
+      setError("Parent phone number must be exactly 10 digits.");
+      setCreatingMember(false);
+      return;
+    }
+
+    if (!memberForm.joinedDate) {
+      setError("Joining date is required.");
+      setCreatingMember(false);
+      return;
+    }
+
     const payload = {
       ...memberForm,
+      membershipStartDate: memberForm.joinedDate,
+      paidTill: memberForm.paidTill || getPaidTillFromPlan(memberForm.joinedDate, memberForm.plan) || undefined,
       feeAmount: memberForm.feeAmount === "" ? undefined : Number(memberForm.feeAmount),
       seatNumber: Number(memberForm.seatNumber)
     };
@@ -201,7 +270,7 @@ export default function DashboardPage() {
         body: payload
       });
 
-      setMemberForm(initialMemberForm);
+      setMemberForm(createInitialMemberForm());
       setActivePromo("");
       setActionMessage(`${student.name} added as a new member.`);
       loadDashboard();
@@ -219,11 +288,12 @@ export default function DashboardPage() {
           <h1 className="m-0 text-[2.75rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Admin</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-3xl shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:h-16 sm:w-16 sm:rounded-3xl sm:text-4xl" onClick={() => setActivePromo("library")} type="button" aria-label="Add library">
-            +
-          </button>
-          <button className="grid h-14 w-14 place-items-center rounded-full border-4 border-yellow-300 bg-yellow-50 text-2xl font-extrabold text-yellow-600 shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:h-20 sm:w-20 sm:text-3xl" onClick={() => setActivePromo("owner")} type="button" aria-label="Show owner details">
-            {(user?.name || "A").slice(0, 1).toUpperCase()}
+          <button className="grid h-14 w-14 place-items-center overflow-hidden rounded-full border-4 border-yellow-300 bg-yellow-50 text-2xl font-extrabold text-yellow-600 shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:h-20 sm:w-20 sm:text-3xl" onClick={() => setActivePromo("owner")} type="button" aria-label="Show owner details">
+            {libraryProfile?.logoDataUrl ? (
+              <img className="h-full w-full object-contain" src={libraryProfile.logoDataUrl} alt={`${libraryName} logo`} />
+            ) : (
+              (user?.name || "A").slice(0, 1).toUpperCase()
+            )}
           </button>
         </div>
       </section>
@@ -231,10 +301,19 @@ export default function DashboardPage() {
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
       {actionMessage ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{actionMessage}</div> : null}
 
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/30 sm:rounded-[1.75rem] sm:p-5">
-        <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Current Library</p>
-        <h2 className="m-0 mt-1 break-words text-2xl font-black text-slate-950 sm:text-3xl">{libraryName}</h2>
-        <p className="m-0 mt-2 break-words text-sm font-bold text-slate-500 sm:text-base">{libraryAddress}</p>
+      <section className="flex items-center gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/30 sm:rounded-[1.75rem] sm:p-5">
+        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-yellow-300 bg-yellow-50 text-xl font-black text-yellow-600">
+          {libraryProfile?.logoDataUrl ? (
+            <img className="h-full w-full object-contain" src={libraryProfile.logoDataUrl} alt={`${libraryName} logo`} />
+          ) : (
+            libraryInitials
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Current Library</p>
+          <h2 className="m-0 mt-1 break-words text-2xl font-black text-slate-950 sm:text-3xl">{libraryName}</h2>
+          <p className="m-0 mt-2 break-words text-sm font-bold text-slate-500 sm:text-base">{libraryAddress}</p>
+        </div>
       </section>
 
       <section className="flex w-fit rounded-[1.35rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
@@ -285,6 +364,15 @@ export default function DashboardPage() {
           <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Get latest updates and library news.</p>
         </div>
         <span className="ml-auto hidden min-h-12 shrink-0 items-center justify-center rounded-full bg-white/20 px-5 font-bold sm:inline-flex">New Member</span>
+      </button>
+
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("library")} type="button">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-teal-50 font-black text-teal-700 sm:h-14 sm:w-14" aria-hidden="true">L</div>
+        <div className="min-w-0">
+          <strong className="block break-words text-xl leading-tight text-slate-950 sm:text-2xl">Add Library</strong>
+          <p className="m-0 mt-1 break-words text-sm text-slate-500 sm:text-base">Create another library with seat-based payment.</p>
+        </div>
+        <span className="ml-auto hidden shrink-0 text-3xl text-slate-400 min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
       {activePromo ? (
@@ -350,11 +438,24 @@ export default function DashboardPage() {
               <div className="grid gap-3 min-[520px]:grid-cols-2">
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
                   <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Library</span>
-                  <p className="m-0 mt-1 break-words font-bold">{libraryProfile?.name || "-"}</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 border-yellow-300 bg-yellow-50 text-sm font-black text-yellow-600">
+                      {libraryProfile?.logoDataUrl ? (
+                        <img className="h-full w-full object-contain" src={libraryProfile.logoDataUrl} alt={`${libraryName} logo`} />
+                      ) : (
+                        libraryInitials
+                      )}
+                    </div>
+                    <p className="m-0 min-w-0 break-words font-bold">{libraryProfile?.name || "-"}</p>
+                  </div>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
                   <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
                   <p className="m-0 mt-1 break-words font-bold">{libraryProfile?.phone || "-"}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seats</span>
+                  <p className="m-0 mt-1 break-words font-bold">{libraryProfile?.seatCount || "-"}</p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
                   <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Plan</span>
@@ -432,7 +533,11 @@ export default function DashboardPage() {
                   <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-address" name="address" value={libraryForm.address} onChange={handleLibraryFormChange} />
                 </div>
                 <div className="grid gap-2">
-                  <label className="font-semibold text-slate-600" htmlFor="new-library-amount">Amount Per Library</label>
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-seats">Library Seats</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-seats" name="seatCount" type="number" min="1" value={libraryForm.seatCount} onChange={handleLibraryFormChange} required />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-library-amount">Amount Per Seat</label>
                   <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-library-amount" name="subscriptionAmount" type="number" min="1" value={libraryForm.subscriptionAmount} onChange={handleLibraryFormChange} required />
                 </div>
                 <div className="grid gap-2">
@@ -457,7 +562,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <span className="font-bold text-slate-600">{paymentLibraryCount} librar{paymentLibraryCount === 1 ? "y" : "ies"} x {formatCurrency(libraryForm.subscriptionAmount || 0)}</span>
+                <span className="font-bold text-slate-600">{paymentLibraryCount} librar{paymentLibraryCount === 1 ? "y" : "ies"} | {billedSeatCount || 0} seats x {formatCurrency(libraryForm.subscriptionAmount || 0)}</span>
                 <strong className="text-xl font-black text-teal-700">Total {formatCurrency(newLibraryPaymentTotal)}</strong>
               </div>
               <button className="min-h-12 rounded-full bg-teal-700 px-5 font-extrabold text-white shadow-lg shadow-teal-700/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={creatingLibrary} type="submit">
@@ -473,7 +578,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-phone">Phone</label>
-                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-phone" name="phone" value={memberForm.phone} onChange={handleMemberFormChange} required />
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-phone" name="phone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={memberForm.phone} onChange={handleMemberFormChange} required />
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-seat">Seat Number</label>
@@ -482,6 +587,10 @@ export default function DashboardPage() {
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-hall">Hall Name</label>
                   <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-hall" name="hallName" placeholder="Main Hall" value={memberForm.hallName} onChange={handleMemberFormChange} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="font-semibold text-slate-600" htmlFor="new-member-joinedDate">Joining Date</label>
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-joinedDate" name="joinedDate" type="date" value={memberForm.joinedDate} onChange={handleMemberFormChange} required />
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-plan">Plan</label>
@@ -517,7 +626,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-parentPhone">Parent Number</label>
-                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-parentPhone" name="parentPhone" value={memberForm.parentPhone} onChange={handleMemberFormChange} />
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-parentPhone" name="parentPhone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={memberForm.parentPhone} onChange={handleMemberFormChange} />
                 </div>
               </div>
               <div className="grid gap-2">

@@ -21,6 +21,25 @@ const getStatusFromPaidTill = (paidTill) => {
   return endDate >= new Date() ? "ACTIVE" : "INACTIVE";
 };
 
+const getPlanDays = (plan) => {
+  const match = String(plan || "").match(/\d+/);
+  const months = match ? Number(match[0]) : 0;
+  return months > 0 ? months * 30 : 0;
+};
+
+const buildPaidTillFromPlan = (startDate, plan) => {
+  const days = getPlanDays(plan);
+
+  if (!days || !startDate) return null;
+
+  const paidTill = new Date(startDate);
+
+  if (Number.isNaN(paidTill.getTime())) return null;
+
+  paidTill.setDate(paidTill.getDate() + days - 1);
+  return paidTill;
+};
+
 const buildPaymentSearchMatch = (search) => {
   if (!search) return [];
 
@@ -58,9 +77,9 @@ exports.addPayment = async (req, res) => {
       notes
     } = req.body;
 
-    if (!studentId || amount === undefined || !paidTill) {
+    if (!studentId || amount === undefined) {
       return res.status(400).json({
-        msg: "studentId, amount and paidTill are required"
+        msg: "studentId and amount are required"
       });
     }
 
@@ -68,12 +87,6 @@ exports.addPayment = async (req, res) => {
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({ msg: "amount must be a positive number" });
-    }
-
-    const normalizedPaidTill = normalizeDate(paidTill);
-
-    if (!normalizedPaidTill) {
-      return res.status(400).json({ msg: "paidTill is not a valid date" });
     }
 
     const normalizedPaymentDate = normalizeDate(paymentDate) || new Date();
@@ -102,6 +115,16 @@ exports.addPayment = async (req, res) => {
       normalizeDate(student.paidTill) ||
       normalizeDate(student.membershipStartDate) ||
       normalizedPaymentDate;
+    const normalizedPaidTill =
+      normalizeDate(paidTill) || buildPaidTillFromPlan(normalizedMembershipStartDate, student.plan);
+
+    if (!normalizedPaidTill) {
+      return res.status(400).json({ msg: "paidTill is required when the student's plan has no month duration" });
+    }
+
+    if (paidTill && !normalizeDate(paidTill)) {
+      return res.status(400).json({ msg: "paidTill is not a valid date" });
+    }
 
     if (membershipStartDate && !normalizeDate(membershipStartDate)) {
       return res.status(400).json({ msg: "membershipStartDate is not a valid date" });

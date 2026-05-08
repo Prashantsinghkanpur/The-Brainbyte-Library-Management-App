@@ -1,3 +1,36 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+.light .app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(254, 240, 138, 0.42), transparent 34rem),
+    linear-gradient(180deg, #fffaf0 0%, #fefce8 44%, #fff7ed 100%);
+}
+
+.light .app-sidebar,
+.light .app-mobile-nav {
+  background-color: rgba(255, 251, 235, 0.92);
+  border-color: rgba(251, 191, 36, 0.34);
+}
+
+.light .app-shell .bg-white {
+  background-color: #fffdf7;
+}
+
+.light .app-shell .bg-slate-50,
+.light .app-shell .bg-slate-100 {
+  background-color: #fff7ed;
+}
+
+.light .app-shell .border-slate-200 {
+  border-color: #fde68a;
+}
+
+.light .app-shell .shadow-slate-300\/40,
+.light .app-shell .shadow-slate-300\/30,
+.light .app-shell .shadow-slate-300\/25,
+.light .app-shell .shadow-slate-300\/20,
+.light .app-shell .shadow-slate-400\/25 {
+  --tw-shadow-color: rgba(217, 119, 6, 0.16);
+}

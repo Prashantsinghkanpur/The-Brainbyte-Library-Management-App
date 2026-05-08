@@ -22,6 +22,28 @@ const initialFilters = {
   sort: "latest"
 };
 
+const toDateInputDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getPlanDays = (plan) => {
+  const months = Number(String(plan || "").match(/\d+/)?.[0] || 0);
+  return months > 0 ? months * 30 : 0;
+};
+
+const getPaidTillFromPlan = (startDate, plan) => {
+  const days = getPlanDays(plan);
+  const date = new Date(startDate);
+
+  if (!days || Number.isNaN(date.getTime())) return "";
+
+  date.setDate(date.getDate() + days - 1);
+  return toDateInputDate(date);
+};
+
 export default function PaymentsPage() {
   const { token } = useAuth();
   const [students, setStudents] = useState([]);
@@ -66,7 +88,17 @@ export default function PaymentsPage() {
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const nextForm = { ...current, [name]: value };
+      const selectedStudent = students.find((student) => student._id === nextForm.studentId);
+
+      if ((name === "studentId" || name === "membershipStartDate") && selectedStudent && !current.paidTill) {
+        const startDate = nextForm.membershipStartDate || selectedStudent.paidTill || selectedStudent.membershipStartDate || new Date();
+        nextForm.paidTill = getPaidTillFromPlan(startDate, selectedStudent.plan);
+      }
+
+      return nextForm;
+    });
   };
 
   const handleFilterChange = (event) => {
@@ -144,7 +176,7 @@ export default function PaymentsPage() {
               </div>
               <div className="grid gap-2">
                 <label className="font-semibold text-slate-600" htmlFor="payment-paidTill">Paid Till</label>
-                <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="payment-paidTill" name="paidTill" type="date" value={form.paidTill} onChange={handleFormChange} required />
+                <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="payment-paidTill" name="paidTill" type="date" value={form.paidTill} onChange={handleFormChange} />
               </div>
               <div className="grid gap-2">
                 <label className="font-semibold text-slate-600" htmlFor="payment-paymentDate">Payment Date</label>

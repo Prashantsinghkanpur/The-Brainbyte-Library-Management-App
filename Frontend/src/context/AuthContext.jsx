@@ -29,15 +29,24 @@ export function AuthProvider({ children }) {
       const shouldUseDark = themeMode === "DARK" || (themeMode === "SYSTEM" && mediaQuery.matches);
 
       root.classList.toggle("dark", shouldUseDark);
+      root.classList.toggle("light", themeMode === "LIGHT");
       root.dataset.themeMode = themeMode;
       root.style.colorScheme = shouldUseDark ? "dark" : "light";
     };
 
     applyTheme();
-    mediaQuery.addEventListener("change", applyTheme);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", applyTheme);
+    } else {
+      mediaQuery.addListener(applyTheme);
+    }
 
     return () => {
-      mediaQuery.removeEventListener("change", applyTheme);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", applyTheme);
+      } else {
+        mediaQuery.removeListener(applyTheme);
+      }
     };
   }, [authState.user?.themeMode]);
 

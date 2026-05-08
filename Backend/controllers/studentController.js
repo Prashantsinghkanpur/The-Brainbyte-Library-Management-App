@@ -9,6 +9,28 @@ const normalizeDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
+const isValidPhone = (value) => /^\d{10}$/.test(value);
+
+const getPlanDays = (plan) => {
+  const match = String(plan || "").match(/\d+/);
+  const months = match ? Number(match[0]) : 0;
+  return months > 0 ? months * 30 : 0;
+};
+
+const buildPaidTillFromPlan = (startDate, plan) => {
+  const days = getPlanDays(plan);
+
+  if (!days || !startDate) return null;
+
+  const paidTill = new Date(startDate);
+
+  if (Number.isNaN(paidTill.getTime())) return null;
+
+  paidTill.setDate(paidTill.getDate() + days - 1);
+  return paidTill;
+};
+
 const getStatusFromPaidTill = (paidTill) => {
   if (!paidTill) {
     return "INACTIVE";
@@ -55,10 +77,21 @@ exports.addStudent = async (req, res) => {
       notes
     } = req.body;
 
-    if (!name || !phone || seatNumber === undefined || !plan) {
+    if (!name || !phone || seatNumber === undefined || !plan || !joinedDate) {
       return res.status(400).json({
-        msg: "name, phone, seatNumber and plan are required"
+        msg: "name, phone, seatNumber, plan and joinedDate are required"
       });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    const normalizedParentPhone = parentPhone ? normalizePhone(parentPhone) : "";
+
+    if (!isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ msg: "phone must be exactly 10 digits" });
+    }
+
+    if (normalizedParentPhone && !isValidPhone(normalizedParentPhone)) {
+      return res.status(400).json({ msg: "parentPhone must be exactly 10 digits" });
     }
 
     const numericSeatNumber = Number(seatNumber);
@@ -72,15 +105,20 @@ exports.addStudent = async (req, res) => {
       return res.status(400).json({ msg: "feeAmount must be zero or a positive number" });
     }
 
-    const normalizedPaidTill = normalizeDate(paidTill);
+    const normalizedJoinedDate = normalizeDate(joinedDate);
 
-    if (paidTill && !normalizedPaidTill) {
-      return res.status(400).json({ msg: "paidTill is not a valid date" });
+    if (!normalizedJoinedDate) {
+      return res.status(400).json({ msg: "joinedDate is not a valid date" });
     }
 
-    const normalizedJoinedDate = normalizeDate(joinedDate) || new Date();
     const normalizedMembershipStartDate =
       normalizeDate(membershipStartDate) || normalizedJoinedDate;
+    const normalizedPaidTill =
+      normalizeDate(paidTill) || buildPaidTillFromPlan(normalizedMembershipStartDate, plan);
+
+    if (paidTill && !normalizeDate(paidTill)) {
+      return res.status(400).json({ msg: "paidTill is not a valid date" });
+    }
     const normalizedHallName = hallName ? hallName.trim() : "Main Hall";
     const normalizedShift = shift ? shift.toUpperCase() : "FULL_DAY";
 
@@ -100,9 +138,9 @@ exports.addStudent = async (req, res) => {
       libraryId: req.user.libraryId,
       memberId: await getNextMemberId(req.user.libraryId),
       name: name.trim(),
-      phone: phone.trim(),
+      phone: normalizedPhone,
       parentName: parentName ? parentName.trim() : "",
-      parentPhone: parentPhone ? parentPhone.trim() : "",
+      parentPhone: normalizedParentPhone,
       hallName: normalizedHallName,
       seatNumber: numericSeatNumber,
       shift: normalizedShift,
@@ -244,9 +282,25 @@ exports.updateStudent = async (req, res) => {
     const nextHallName = hallName !== undefined ? hallName.trim() : student.hallName;
 
     if (name !== undefined) student.name = name.trim();
-    if (phone !== undefined) student.phone = phone.trim();
+    if (phone !== undefined) {
+      const normalizedPhone = normalizePhone(phone);
+
+      if (!isValidPhone(normalizedPhone)) {
+        return res.status(400).json({ msg: "phone must be exactly 10 digits" });
+      }
+
+      student.phone = normalizedPhone;
+    }
     if (parentName !== undefined) student.parentName = parentName.trim();
-    if (parentPhone !== undefined) student.parentPhone = parentPhone.trim();
+    if (parentPhone !== undefined) {
+      const normalizedParentPhone = normalizePhone(parentPhone);
+
+      if (normalizedParentPhone && !isValidPhone(normalizedParentPhone)) {
+        return res.status(400).json({ msg: "parentPhone must be exactly 10 digits" });
+      }
+
+      student.parentPhone = normalizedParentPhone;
+    }
     if (plan !== undefined) student.plan = plan.trim();
     if (feeAmount !== undefined) {
       const numericFeeAmount = Number(feeAmount);

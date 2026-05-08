@@ -8,8 +8,46 @@ const initialProfile = {
   email: "",
   phone: "",
   libraryName: "",
-  address: ""
+  seatCount: "",
+  address: "",
+  logoDataUrl: ""
 };
+
+const getLibraryInitials = (profile) => (profile.libraryName || profile.name || "BB").slice(0, 2).toUpperCase();
+
+const compressLogoFile = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please choose an image file."));
+      return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      const size = 256;
+      const scale = Math.min(size / image.width, size / image.height);
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.width = size;
+      canvas.height = size;
+      context.clearRect(0, 0, size, size);
+      context.drawImage(image, Math.round((size - width) / 2), Math.round((size - height) / 2), width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/webp", 0.86));
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not read this image."));
+    };
+
+    image.src = objectUrl;
+  });
 
 const loadRazorpayCheckout = () =>
   new Promise((resolve, reject) => {
@@ -35,6 +73,7 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
   const [subscriptionAction, setSubscriptionAction] = useState("");
 
   const subscriptionStatus = subscription?.status || user?.subscriptionStatus || "ACTIVE";
@@ -57,7 +96,9 @@ export default function SettingsPage() {
         email: profileData.user.email || "",
         phone: profileData.library.phone || "",
         libraryName: profileData.library.name || "",
-        address: profileData.library.address || ""
+        seatCount: profileData.library.seatCount || "",
+        address: profileData.library.address || "",
+        logoDataUrl: profileData.library.logoDataUrl || ""
       });
       setThemeMode(profileData.user.themeMode || "SYSTEM");
       setSubscription(subscriptionData);
@@ -83,6 +124,72 @@ export default function SettingsPage() {
     setProfile((current) => ({ ...current, [name]: value }));
   };
 
+  const applyProfileResponse = (data) => {
+    setProfile({
+      name: data.user.name || "",
+      email: data.user.email || "",
+      phone: data.library.phone || "",
+      libraryName: data.library.name || "",
+      seatCount: data.library.seatCount || "",
+      address: data.library.address || "",
+      logoDataUrl: data.library.logoDataUrl || ""
+    });
+    patchUser((currentUser) => ({
+      ...currentUser,
+      ...data.user
+    }));
+  };
+
+  const saveProfile = async (nextProfile, successMessage) => {
+    const data = await apiRequest("/settings/profile", {
+      method: "PATCH",
+      token,
+      body: nextProfile
+    });
+
+    applyProfileResponse(data);
+    setSuccess(successMessage);
+  };
+
+  const handleLogoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setError("");
+    setSuccess("");
+    setSavingLogo(true);
+
+    try {
+      const logoDataUrl = await compressLogoFile(file);
+      const nextProfile = { ...profile, logoDataUrl };
+      setProfile(nextProfile);
+      await saveProfile(nextProfile, "Library logo updated successfully.");
+    } catch (logoError) {
+      setError(getErrorMessage(logoError));
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setError("");
+    setSuccess("");
+    setSavingLogo(true);
+
+    const nextProfile = { ...profile, logoDataUrl: "" };
+    setProfile(nextProfile);
+
+    try {
+      await saveProfile(nextProfile, "Library logo removed.");
+    } catch (removeError) {
+      setError(getErrorMessage(removeError));
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
   const handleProfileSubmit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -90,23 +197,7 @@ export default function SettingsPage() {
     setSuccess("");
 
     try {
-      const data = await apiRequest("/settings/profile", {
-        method: "PATCH",
-        token,
-        body: profile
-      });
-      setProfile({
-        name: data.user.name || "",
-        email: data.user.email || "",
-        phone: data.library.phone || "",
-        libraryName: data.library.name || "",
-        address: data.library.address || ""
-      });
-      patchUser((currentUser) => ({
-        ...currentUser,
-        ...data.user
-      }));
-      setSuccess("Profile updated successfully.");
+      await saveProfile(profile, "Profile updated successfully.");
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -231,8 +322,8 @@ export default function SettingsPage() {
     <div className="grid gap-5 sm:gap-6">
       <section className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="m-0 text-[2.55rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Settings</h1>
-          <p className="m-0 break-words text-sm text-slate-500 sm:text-base">Manage your account and preferences</p>
+          <h1 className="m-0 text-[2.55rem] font-black leading-[0.95] text-slate-950 min-[380px]:text-5xl sm:text-7xl">Settings</h1>
+          <p className="m-0 mt-3 break-words text-sm text-slate-500 sm:text-base">Manage your account and preferences</p>
         </div>
       </section>
 
@@ -240,7 +331,13 @@ export default function SettingsPage() {
       {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
       <section className="flex items-start gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:items-center sm:gap-4 sm:rounded-[1.75rem] sm:p-5">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-yellow-50 text-lg font-extrabold text-yellow-600 sm:h-16 sm:w-16 sm:rounded-3xl sm:text-xl">BB</div>
+        <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border-4 border-yellow-300 bg-yellow-50 text-lg font-extrabold text-yellow-600 sm:h-16 sm:w-16 sm:rounded-3xl sm:text-xl">
+          {profile.logoDataUrl ? (
+            <img className="h-full w-full object-contain" src={profile.logoDataUrl} alt={`${profile.libraryName || "Library"} logo`} />
+          ) : (
+            getLibraryInitials(profile)
+          )}
+        </div>
         <div className="min-w-0 flex-1">
           <strong className="block break-words leading-tight">{profile.name || "Admin"}</strong>
           <p className="m-0 break-all text-sm text-slate-500 sm:text-base">{profile.email}</p>
@@ -259,6 +356,11 @@ export default function SettingsPage() {
               : `Status: ${subscriptionStatus}`}
           </p>
           <p className="m-0 mt-1 break-words text-sm text-white/80">Renewal date: {formatDate(renewsAt)}</p>
+          {subscription?.amountPerSeat ? (
+            <p className="m-0 mt-1 break-words text-sm text-white/80">
+              {subscription.seatCount} seats x {formatCurrency(subscription.amountPerSeat)}
+            </p>
+          ) : null}
         </div>
         <button
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-white/20 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -308,6 +410,7 @@ export default function SettingsPage() {
                   <strong className="block break-all leading-tight">{item.reference}</strong>
                   <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
                     {formatDate(item.paymentDate)} | {item.method} | {item.status}
+                    {item.amountPerSeat ? ` | ${item.seatCount} seats` : ""}
                   </p>
                 </div>
                 <span className="break-words font-extrabold text-teal-700 min-[430px]:shrink-0 min-[430px]:text-right">{formatCurrency(item.amount)}</span>
@@ -346,6 +449,29 @@ export default function SettingsPage() {
         </div>
 
         <form className="grid gap-4" onSubmit={handleProfileSubmit}>
+          <div className="flex flex-wrap items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-yellow-300 bg-yellow-50 text-2xl font-black text-yellow-600">
+              {profile.logoDataUrl ? (
+                <img className="h-full w-full object-contain" src={profile.logoDataUrl} alt={`${profile.libraryName || "Library"} logo preview`} />
+              ) : (
+                getLibraryInitials(profile)
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Library Logo</span>
+              <p className="m-0 mt-1 text-sm font-bold text-slate-600">Optional logo for this library profile.</p>
+            </div>
+            <label className={savingLogo ? "inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white opacity-70 shadow-lg shadow-teal-700/20" : "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5"}>
+              {savingLogo ? "Saving..." : "Upload Logo"}
+              <input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={savingLogo} onChange={handleLogoChange} />
+            </label>
+            {profile.logoDataUrl ? (
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={savingLogo} onClick={handleLogoRemove}>
+                Remove
+              </button>
+            ) : null}
+          </div>
+
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="settings-name">Owner Name</label>
@@ -362,6 +488,10 @@ export default function SettingsPage() {
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="settings-phone">Phone</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="settings-phone" name="phone" value={profile.phone} onChange={handleProfileChange} />
+            </div>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="settings-seatCount">Library Seats</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="settings-seatCount" name="seatCount" type="number" min="1" value={profile.seatCount} onChange={handleProfileChange} />
             </div>
             <div className="grid gap-2 min-[520px]:col-span-2">
               <label className="font-semibold text-slate-600" htmlFor="settings-address">Library Address</label>

@@ -10,6 +10,7 @@ const initialForm = {
   password: "",
   libraryName: "",
   phone: "",
+  seatCount: "",
   address: ""
 };
 
@@ -87,6 +88,10 @@ export default function RegisterPage() {
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="phone">Phone</label>
               <input className={inputClass} id="phone" name="phone" value={form.phone} onChange={handleChange} required />
+            </div>
+            <div className="grid gap-2">
+              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="seatCount">Library seats</label>
+              <input className={inputClass} id="seatCount" name="seatCount" type="number" min="1" value={form.seatCount} onChange={handleChange} required />
             </div>
             <div className="grid gap-2 min-[520px]:col-span-2">
               <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="address">Library address</label>

@@ -1,8 +1,14 @@
 const User = require("../models/User");
 const Library = require("../models/Library");
+const Hall = require("../models/Hall");
 const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+
+const normalizeSeatCount = (value) => {
+  const seatCount = Number(value);
+  return Number.isInteger(seatCount) && seatCount > 0 ? seatCount : null;
+};
 
 const buildAuthResponse = (user) => ({
   id: user._id,
@@ -19,15 +25,21 @@ const buildAuthResponse = (user) => ({
 
 // REGISTER
 exports.register = async (req, res) => {
-  const { name, email, password, libraryName, phone, address } = req.body;
+  const { name, email, password, libraryName, phone, address, seatCount } = req.body;
 
   try {
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ msg: "JWT secret is not configured" });
     }
 
-    if (!name || !email || !password || !libraryName || !phone) {
+    if (!name || !email || !password || !libraryName || !phone || seatCount === undefined) {
       return res.status(400).json({ msg: "All fields are required" });
+    }
+
+    const normalizedSeatCount = normalizeSeatCount(seatCount);
+
+    if (!normalizedSeatCount) {
+      return res.status(400).json({ msg: "seatCount must be a positive whole number" });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -42,7 +54,13 @@ exports.register = async (req, res) => {
       name: libraryName.trim(),
       ownerName: name.trim(),
       phone: phone.trim(),
-      address: address?.trim() || ""
+      address: address?.trim() || "",
+      seatCount: normalizedSeatCount
+    });
+    await Hall.create({
+      libraryId: library._id,
+      name: "Main Hall",
+      totalSeats: normalizedSeatCount
     });
 
     // hash password
@@ -69,6 +87,7 @@ exports.register = async (req, res) => {
         user: buildAuthResponse(user)
       });
     } catch (err) {
+      await Hall.deleteMany({ libraryId: library._id });
       await Library.findByIdAndDelete(library._id);
       throw err;
     }
@@ -124,6 +143,7 @@ exports.createOwnerLibrary = async (req, res) => {
     libraryName,
     address,
     phone,
+    seatCount,
     subscriptionAmount,
     paymentMethod,
     paymentReference,
@@ -135,14 +155,19 @@ exports.createOwnerLibrary = async (req, res) => {
       return res.status(500).json({ msg: "JWT secret is not configured" });
     }
 
-    if (!libraryName || !phone || subscriptionAmount === undefined) {
-      return res.status(400).json({ msg: "libraryName, phone and subscriptionAmount are required" });
+    if (!libraryName || !phone || seatCount === undefined || subscriptionAmount === undefined) {
+      return res.status(400).json({ msg: "libraryName, phone, seatCount and subscriptionAmount are required" });
     }
 
-    const numericAmount = Number(subscriptionAmount);
+    const normalizedSeatCount = normalizeSeatCount(seatCount);
+    const numericAmountPerSeat = Number(subscriptionAmount);
 
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      return res.status(400).json({ msg: "subscriptionAmount must be a positive number" });
+    if (!normalizedSeatCount) {
+      return res.status(400).json({ msg: "seatCount must be a positive whole number" });
+    }
+
+    if (!Number.isFinite(numericAmountPerSeat) || numericAmountPerSeat <= 0) {
+      return res.status(400).json({ msg: "subscriptionAmount must be a positive per-seat amount" });
     }
 
     const normalizedPaymentScope = paymentScope === "ALL_LIBRARIES" ? "ALL_LIBRARIES" : "NEW_LIBRARY";
@@ -155,13 +180,20 @@ exports.createOwnerLibrary = async (req, res) => {
 
     let library;
     let createdPaymentIds = [];
+    let totalPaymentAmount = 0;
 
     try {
       library = await Library.create({
         name: libraryName.trim(),
         ownerName: user.name,
         phone: phone.trim(),
-        address: address?.trim() || ""
+        address: address?.trim() || "",
+        seatCount: normalizedSeatCount
+      });
+      await Hall.create({
+        libraryId: library._id,
+        name: "Main Hall",
+        totalSeats: normalizedSeatCount
       });
 
       const renewsAt = new Date();
@@ -173,25 +205,39 @@ exports.createOwnerLibrary = async (req, res) => {
       const paidLibraryIds = normalizedPaymentScope === "ALL_LIBRARIES"
         ? [...new Set([...existingLibraryIds, library._id.toString()])]
         : [library._id.toString()];
+      const paidLibraries = await Library.find({ _id: { $in: paidLibraryIds } });
+      const seatCountByLibraryId = new Map(
+        paidLibraries.map((paidLibrary) => [
+          paidLibrary._id.toString(),
+          Math.max(1, Number(paidLibrary.seatCount || 0))
+        ])
+      );
 
       const paymentBatch = `${library._id}_${Date.now()}`;
       const payments = await AppSubscriptionPayment.insertMany(
-        paidLibraryIds.map((libraryId, index) => ({
-          userId: user._id,
-          libraryId,
-          amount: numericAmount,
-          status: "PAID",
-          razorpayOrderId: paymentReference?.trim()
-            ? `manual_${paymentBatch}_${index}_${paymentReference.trim()}`
-            : `manual_${paymentBatch}_${index}`,
-          razorpayPaymentId: paymentMethod?.trim() || "MANUAL",
-          razorpaySignature: paymentReference?.trim() || "manual-entry",
-          paidAt: new Date(),
-          renewsAt
-        }))
+        paidLibraryIds.map((libraryId, index) => {
+          const billedSeatCount = seatCountByLibraryId.get(libraryId) || 1;
+
+          return {
+            userId: user._id,
+            libraryId,
+            amount: numericAmountPerSeat * billedSeatCount,
+            seatCount: billedSeatCount,
+            amountPerSeat: numericAmountPerSeat,
+            status: "PAID",
+            razorpayOrderId: paymentReference?.trim()
+              ? `manual_${paymentBatch}_${index}_${paymentReference.trim()}`
+              : `manual_${paymentBatch}_${index}`,
+            razorpayPaymentId: paymentMethod?.trim() || "MANUAL",
+            razorpaySignature: paymentReference?.trim() || "manual-entry",
+            paidAt: new Date(),
+            renewsAt
+          };
+        })
       );
 
       createdPaymentIds = payments.map((payment) => payment._id);
+      totalPaymentAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
 
       user.libraryId = library._id;
       user.subscriptionPlan = "PRO";
@@ -206,6 +252,7 @@ exports.createOwnerLibrary = async (req, res) => {
       await user.save();
     } catch (err) {
       if (library?._id) {
+        await Hall.deleteMany({ libraryId: library._id });
         await Library.findByIdAndDelete(library._id);
       }
 
@@ -227,8 +274,10 @@ exports.createOwnerLibrary = async (req, res) => {
       user: buildAuthResponse(user),
       library,
       payment: {
-        amount: numericAmount,
-        totalAmount: numericAmount * (createdPaymentIds.length || 1),
+        amountPerSeat: numericAmountPerSeat,
+        seatCount: normalizedSeatCount,
+        amount: numericAmountPerSeat * normalizedSeatCount,
+        totalAmount: totalPaymentAmount,
         currency: "INR",
         scope: normalizedPaymentScope,
         libraryCount: createdPaymentIds.length || 1,
