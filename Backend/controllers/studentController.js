@@ -2,6 +2,7 @@ const Student = require("../models/student");
 const FormerMember = require("../models/FormerMember");
 const Counter = require("../models/Counter");
 const { ensureHallCapacity } = require("./seatController");
+const mongoose = require("mongoose");
 
 const normalizeDate = (value) => {
   if (!value) return null;
@@ -58,6 +59,8 @@ const getNextMemberId = async (libraryId) => {
 
   return counter.value;
 };
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // ADD STUDENT
 exports.addStudent = async (req, res) => {
@@ -239,6 +242,10 @@ exports.getStudents = async (req, res) => {
 
 exports.getStudentById = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
@@ -256,6 +263,10 @@ exports.getStudentById = async (req, res) => {
 
 exports.archiveStudent = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
@@ -333,6 +344,10 @@ exports.getFormerMembers = async (req, res) => {
 
 exports.deleteFormerMember = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Former member not found" });
+    }
+
     const formerMember = await FormerMember.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
@@ -352,6 +367,10 @@ exports.deleteFormerMember = async (req, res) => {
 
 exports.updateStudent = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
