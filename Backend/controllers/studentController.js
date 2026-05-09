@@ -1,4 +1,5 @@
 const Student = require("../models/student");
+const FormerMember = require("../models/FormerMember");
 const Counter = require("../models/Counter");
 const { ensureHallCapacity } = require("./seatController");
 
@@ -248,6 +249,102 @@ exports.getStudentById = async (req, res) => {
     }
 
     res.json(student);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.archiveStudent = async (req, res) => {
+  try {
+    const student = await Student.findOne({
+      _id: req.params.id,
+      libraryId: req.user.libraryId
+    });
+
+    if (!student) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    const studentData = student.toObject();
+    delete studentData._id;
+    delete studentData.__v;
+    delete studentData.createdAt;
+    delete studentData.updatedAt;
+
+    const formerMember = await FormerMember.create({
+      ...studentData,
+      originalStudentId: student._id,
+      status: "INACTIVE",
+      archivedAt: new Date()
+    });
+
+    await student.deleteOne();
+
+    res.json({
+      msg: "Student moved to former members and seat is now vacant",
+      formerMember
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getFormerMembers = async (req, res) => {
+  try {
+    const { search, sort = "recent" } = req.query;
+    const query = { libraryId: req.user.libraryId };
+
+    if (search) {
+      const trimmedSearch = search.trim();
+      const searchConditions = [
+        { name: { $regex: trimmedSearch, $options: "i" } },
+        { phone: { $regex: trimmedSearch, $options: "i" } },
+        { parentName: { $regex: trimmedSearch, $options: "i" } },
+        { parentPhone: { $regex: trimmedSearch, $options: "i" } },
+        { hallName: { $regex: trimmedSearch, $options: "i" } }
+      ];
+
+      const searchAsNumber = Number(trimmedSearch);
+
+      if (!Number.isNaN(searchAsNumber)) {
+        searchConditions.push(
+          { memberId: searchAsNumber },
+          { seatNumber: searchAsNumber }
+        );
+      }
+
+      query.$or = searchConditions;
+    }
+
+    const sortMap = {
+      recent: { archivedAt: -1 },
+      name: { name: 1 },
+      seat: { seatNumber: 1 },
+      memberId: { memberId: 1 }
+    };
+
+    const formerMembers = await FormerMember.find(query).sort(sortMap[sort] || sortMap.recent);
+
+    res.json(formerMembers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteFormerMember = async (req, res) => {
+  try {
+    const formerMember = await FormerMember.findOne({
+      _id: req.params.id,
+      libraryId: req.user.libraryId
+    });
+
+    if (!formerMember) {
+      return res.status(404).json({ msg: "Former member not found" });
+    }
+
+    await formerMember.deleteOne();
+
+    res.json({ msg: "Former member permanently deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
