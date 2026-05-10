@@ -348,6 +348,15 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-teal-600 to-sky-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("member")} type="button">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 text-2xl font-black sm:h-14 sm:w-14" aria-hidden="true">+</div>
+        <div className="min-w-0">
+          <strong className="block break-words text-xl leading-tight sm:text-2xl">New Member</strong>
+          <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Add admission details in a popup.</p>
+        </div>
+        <span className="ml-auto hidden shrink-0 text-3xl min-[380px]:block sm:text-4xl">&gt;</span>
+      </button>
+
       <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-indigo-500 to-violet-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("refer")} type="button">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 font-black sm:h-14 sm:w-14" aria-hidden="true">R</div>
         <div className="min-w-0">
@@ -363,7 +372,7 @@ export default function DashboardPage() {
           <strong className="block break-words text-xl leading-tight sm:text-2xl">Join Community</strong>
           <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Get latest updates and library news.</p>
         </div>
-        <span className="ml-auto hidden min-h-12 shrink-0 items-center justify-center rounded-full bg-white/20 px-5 font-bold sm:inline-flex">New Member</span>
+        <span className="ml-auto hidden shrink-0 text-3xl min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
       <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("library")} type="button">
@@ -641,7 +650,7 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 sm:hidden" onClick={() => setActivePromo("member")} type="button">
+      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 lg:bottom-6" onClick={() => setActivePromo("member")} type="button">
         <span>+</span>
         New Member
       </button>
@@ -686,7 +695,7 @@ export default function DashboardPage() {
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Quick Actions</h3>
             <div className="grid gap-4 min-[680px]:grid-cols-3">
-              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-blue-400/20 bg-gradient-to-br from-zinc-950 to-blue-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => navigate("/students?new=1")} type="button">
+              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-blue-400/20 bg-gradient-to-br from-zinc-950 to-blue-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => setActivePromo("member")} type="button">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-100">+</span>
                 <strong className="text-2xl font-black">Add Student</strong>
                 <span className="font-bold text-white/85">New admission</span>

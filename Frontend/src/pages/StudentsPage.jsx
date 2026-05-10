@@ -212,9 +212,11 @@ export default function StudentsPage() {
   const openStudentForm = () => {
     resetForm();
     setShowStudentForm(true);
-    window.setTimeout(() => {
-      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
+  };
+
+  const closeStudentForm = () => {
+    resetForm();
+    setShowStudentForm(false);
   };
 
   const handleView = async (student) => {
@@ -250,9 +252,6 @@ export default function StudentsPage() {
     });
     setShowStudentForm(true);
     setViewingStudent(null);
-    window.setTimeout(() => {
-      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
   const handleSubmit = async (event) => {
@@ -763,9 +762,17 @@ export default function StudentsPage() {
       )}
 
       {directoryView === "active" && showStudentForm ? (
-      <section id="student-form-section" className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="m-0 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
+      <>
+      <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={closeStudentForm} type="button" aria-label="Close student form" />
+      <section className="fixed left-1/2 top-6 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER FORM</p>
+            <h3 className="m-0 mt-1 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
+          </div>
+          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={closeStudentForm} type="button">
+            Close
+          </button>
         </div>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -842,14 +849,13 @@ export default function StudentsPage() {
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={submitting} type="submit">
               {submitting ? "Saving..." : editingId ? "Update Student" : "Add Student"}
             </button>
-            {editingId ? (
-              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => { resetForm(); setShowStudentForm(false); }} type="button">
-                Cancel
-              </button>
-            ) : null}
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={closeStudentForm} type="button">
+              Cancel
+            </button>
           </div>
         </form>
       </section>
+      </>
       ) : null}
     </div>
   );
