@@ -394,14 +394,14 @@ export default function SettingsPage() {
               {subscriptionPlan} plan is {subscriptionStatus.toLowerCase()}
             </p>
           </div>
-          {/* <button
+          <button
             className={subscriptionStatus === "CANCELED" ? "inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" : "inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5"}
             disabled={Boolean(subscriptionAction)}
             onClick={() => handleSubscriptionAction(subscriptionStatus === "CANCELED" ? "RESTORE" : "CANCEL")}
             type="button"
           >
             {subscriptionStatus === "CANCELED" ? "Restore" : "Cancel"}
-          </button> */}
+          </button>
         </div>
 
         <div className="mt-2 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">

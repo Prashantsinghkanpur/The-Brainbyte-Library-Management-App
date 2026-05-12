@@ -150,12 +150,30 @@ export default function AppShell() {
             <NavLink
               key={item.path}
               to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition hover:-translate-y-0.5 ${
+              className={({ isActive }) => {
+                const subscriptionGated =
+                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+
+                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+
+                if (isRenewOnly) {
+                  return "flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition opacity-40 text-slate-400 cursor-not-allowed";
+                }
+
+                return `flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition hover:-translate-y-0.5 ${
                   isActive ? "bg-teal-50 text-teal-700" : "text-slate-700 hover:bg-white"
-                }`
-              }
+                }`;
+              }}
+              onClick={(e) => {
+                const subscriptionGated =
+                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+                if (isRenewOnly) {
+                  e.preventDefault();
+                }
+              }}
             >
+
               <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-xs font-extrabold" aria-hidden="true">
                 <NavIcon name={item.icon} />
               </span>
@@ -225,12 +243,29 @@ export default function AppShell() {
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) =>
-              `grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] ${
+            className={({ isActive }) => {
+              const subscriptionGated =
+                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+
+              if (isRenewOnly) {
+                return "grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] opacity-40 text-slate-400 cursor-not-allowed";
+              }
+
+              return `grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] ${
                 isActive ? "text-teal-700" : "text-slate-500"
-              }`
-            }
+              }`;
+            }}
+            onClick={(e) => {
+              const subscriptionGated =
+                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+              if (isRenewOnly) {
+                e.preventDefault();
+              }
+            }}
           >
+
             <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-xs font-extrabold min-[380px]:h-9 min-[380px]:w-9" aria-hidden="true">
               <NavIcon name={item.icon} className="h-[1.125rem] w-[1.125rem]" />
             </span>
