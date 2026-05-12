@@ -231,9 +231,9 @@ export default function SettingsPage() {
 
   const APP_SUBSCRIPTION_PLANS = [
     { key: "1_MONTH", label: "1 Month", price: 249 },
-    { key: "3_MONTHS", label: "3 Months", price: 199 * 3 },
-    { key: "6_MONTHS", label: "6 Months", price: 175 * 6 },
-    { key: "12_MONTHS", label: "12 Months", price: 150 * 6 }
+    { key: "3_MONTHS", label: "3 Months", price: 599 },
+    { key: "6_MONTHS", label: "6 Months", price: 999 },
+    { key: "12_MONTHS", label: "1 Year", price: 1799 }
   ];
 
   const selectedPlan = APP_SUBSCRIPTION_PLANS.find((p) => p.key === selectedPlanKey) || APP_SUBSCRIPTION_PLANS[0];
@@ -394,14 +394,14 @@ export default function SettingsPage() {
               {subscriptionPlan} plan is {subscriptionStatus.toLowerCase()}
             </p>
           </div>
-          <button
+          {/* <button
             className={subscriptionStatus === "CANCELED" ? "inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" : "inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5"}
             disabled={Boolean(subscriptionAction)}
             onClick={() => handleSubscriptionAction(subscriptionStatus === "CANCELED" ? "RESTORE" : "CANCEL")}
             type="button"
           >
             {subscriptionStatus === "CANCELED" ? "Restore" : "Cancel"}
-          </button>
+          </button> */}
         </div>
 
         <div className="mt-2 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -421,7 +421,10 @@ export default function SettingsPage() {
                     {formatCurrency(plan.price)}
                   </span>
                 </div>
-                <p className="m-0 mt-2 text-sm text-slate-500">Best value</p>
+                {
+                  plan.label === '1 Year' &&           <p className=" text-center font-extrabold  m-0 mt-2 text-sm text-slate-500">Best value</p>
+                }
+      
               </button>
             );
           })}
