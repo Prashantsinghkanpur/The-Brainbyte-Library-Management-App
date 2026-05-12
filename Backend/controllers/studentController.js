@@ -64,6 +64,24 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // ADD STUDENT
 exports.addStudent = async (req, res) => {
+  const User = require("../models/User");
+  const user = await User.findById(req.user.userId);
+  const studentCount = await Student.countDocuments({
+    libraryId: req.user.libraryId
+  });
+
+  const isProActive =
+    user?.subscriptionPlan === "PRO" &&
+    user?.subscriptionStatus === "ACTIVE" &&
+    user?.subscriptionRenewsAt &&
+    new Date(user.subscriptionRenewsAt).getTime() > Date.now();
+
+  if (!isProActive && studentCount >= 5) {
+    return res.status(402).json({
+      msg: "Free plan allows up to 5 students. Please subscribe to continue."
+    });
+  }
+
   try {
     const {
       name,

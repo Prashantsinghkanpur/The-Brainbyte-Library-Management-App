@@ -30,12 +30,12 @@ const userSchema = new mongoose.Schema({
   subscriptionPlan: {
     type: String,
     enum: ["FREE", "PRO"],
-    default: "PRO"
+    default: "FREE"
   },
   subscriptionStatus: {
     type: String,
     enum: ["ACTIVE", "EXPIRED", "CANCELED"],
-    default: "ACTIVE"
+    default: "EXPIRED"
   },
   subscriptionRenewsAt: {
     type: Date,

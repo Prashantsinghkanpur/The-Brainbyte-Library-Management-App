@@ -240,9 +240,15 @@ exports.createOwnerLibrary = async (req, res) => {
       totalPaymentAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
 
       user.libraryId = library._id;
-      user.subscriptionPlan = "PRO";
-      user.subscriptionStatus = "ACTIVE";
-      user.subscriptionRenewsAt = renewsAt;
+      // Creating/switching libraries via this flow should not automatically upgrade the owner.
+      // Owner starts on FREE plan; PRO is activated only after subscription payment verification.
+      user.subscriptionPlan = user.subscriptionPlan || "FREE";
+      user.subscriptionStatus = user.subscriptionStatus === "ACTIVE" ? "ACTIVE" : "EXPIRED";
+      user.subscriptionRenewsAt = user.subscriptionRenewsAt || renewsAt;
+      // If the owner was PRO already, keep it; otherwise stay FREE.
+      if (user.subscriptionPlan !== "PRO") {
+        user.subscriptionPlan = "FREE";
+      }
 
       if (!existingLibraryIds.includes(library._id.toString())) {
         existingLibraryIds.push(library._id.toString());
