@@ -5,8 +5,20 @@ const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const crypto = require("crypto");
 const https = require("https");
 
-const SUBSCRIPTION_DAYS = 30;
 const MAX_LOGO_DATA_URL_LENGTH = 350000;
+
+const APP_SUBSCRIPTION_PLANS = {
+  "1_MONTH": { months: 1, days: 30, label: "1 Month", price: 249 },
+  "3_MONTHS": { months: 3, days: 90, label: "3 Months", price: 599 },
+  "6_MONTHS": { months: 6, days: 180, label: "6 Months", price: 999 },
+  "12_MONTHS": { months: 12, days: 360, label: "1 Year", price: 1799 }
+};
+
+const getAppSubscriptionPlan = (planKey) => {
+  const normalized = String(planKey || "").toUpperCase();
+  return APP_SUBSCRIPTION_PLANS[normalized] || null;
+};
+
 const LOGO_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 
 const getSubscriptionAmount = () => {
@@ -108,12 +120,13 @@ const createRazorpayOrder = ({ amount, currency, receipt, notes }) => {
   });
 };
 
-const buildRenewalDate = (currentRenewal) => {
+const buildRenewalDate = (currentRenewal, planDays) => {
   const renewalBase = currentRenewal ? new Date(currentRenewal) : new Date();
   const safeBase = renewalBase > new Date() ? renewalBase : new Date();
-  safeBase.setDate(safeBase.getDate() + SUBSCRIPTION_DAYS);
+  safeBase.setDate(safeBase.getDate() + planDays);
   return safeBase;
 };
+
 
 const buildSettingsResponse = (user, library) => ({
   user: {
@@ -392,8 +405,19 @@ exports.createSubscriptionOrder = async (req, res) => {
       return res.status(404).json({ msg: "Library not found" });
     }
 
-    const { amount, amountPerSeat, seatCount } = getSubscriptionPricing(library);
-    const amountInPaise = Math.round(amount * 100);
+    const { plan } = req.body || {};
+    const normalizedPlan = getAppSubscriptionPlan(plan);
+
+    if (!normalizedPlan) {
+      return res.status(400).json({ msg: "Invalid plan" });
+    }
+
+    const seatCount = Math.max(1, Number(library?.seatCount || 0));
+
+    // Hardcoded pricing as requested (no per-seat logic for app subscription)
+    const displayAmount = normalizedPlan.price;
+    const amountInPaise = Math.round(displayAmount * 100);
+
     const receipt = `sub_${user._id}_${Date.now()}`.slice(0, 40);
     const order = await createRazorpayOrder({
       amount: amountInPaise,
@@ -403,20 +427,24 @@ exports.createSubscriptionOrder = async (req, res) => {
         userId: user._id.toString(),
         libraryId: user.libraryId.toString(),
         seatCount: String(seatCount),
-        amountPerSeat: String(amountPerSeat),
-        plan: "PRO"
+        amountPerSeat: "0",
+        plan: "PRO",
+        subscriptionPlanKey: String(plan).toUpperCase(),
+        subscriptionPlanLabel: normalizedPlan.label,
+        subscriptionPlanDays: String(normalizedPlan.days)
       }
     });
 
     await AppSubscriptionPayment.create({
       userId: user._id,
       libraryId: user.libraryId,
-      amount,
+      amount: displayAmount,
       seatCount,
-      amountPerSeat,
+      amountPerSeat: 0,
       currency: order.currency || "INR",
       razorpayOrderId: order.id,
-      status: "CREATED"
+      status: "CREATED",
+      plan: "PRO"
     });
 
     res.status(201).json({
@@ -425,18 +453,19 @@ exports.createSubscriptionOrder = async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       plan: "PRO",
-      displayAmount: amount,
+      displayAmount,
       seatCount,
-      amountPerSeat,
+      amountPerSeat: 0,
       name: "Brainbyte Pro",
-      description: amountPerSeat > 0
-        ? `${SUBSCRIPTION_DAYS}-day app subscription for ${seatCount} seats`
-        : `${SUBSCRIPTION_DAYS}-day app subscription`
+      subscriptionPlan: normalizedPlan.label,
+      subscriptionPlanDays: normalizedPlan.days,
+      description: `${normalizedPlan.days}-day app subscription (${normalizedPlan.label})`
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.verifySubscriptionPayment = async (req, res) => {
   try {
@@ -445,6 +474,7 @@ exports.verifySubscriptionPayment = async (req, res) => {
       razorpay_payment_id,
       razorpay_signature
     } = req.body;
+
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ msg: "Razorpay payment details are required" });
@@ -487,7 +517,13 @@ exports.verifySubscriptionPayment = async (req, res) => {
       return res.status(400).json({ msg: "Payment verification failed" });
     }
 
-    const renewsAt = buildRenewalDate(user.subscriptionRenewsAt);
+    const subscriptionPlanDays = Number(paymentRecord.subscriptionPlanDays || 0);
+    if (!subscriptionPlanDays) {
+      return res.status(400).json({ msg: "Subscription plan days not found" });
+    }
+
+    const renewsAt = buildRenewalDate(user.subscriptionRenewsAt, subscriptionPlanDays);
+
 
     paymentRecord.status = "PAID";
     paymentRecord.razorpayPaymentId = razorpay_payment_id;

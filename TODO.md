@@ -1,7 +1,10 @@
-- [ ] Update FREE/PRO subscription defaults: user starts FREE, subscriptionStatus starts EXPIRED
-- [ ] Enforce max 5 students on FREE plan (block POST /students when count >= 5)
-- [ ] Display subscription plan (₹299/month) on UI
-- [ ] Update Students UI to block/encourage upgrade when backend returns 402
-- [ ] Ensure “Pay & Renew” button matches ₹299/month in backend via APP_SUBSCRIPTION_AMOUNT=299
-- [ ] Manual testing: register owner, add students up to 5, verify 6th is blocked, then subscribe and verify unlimited
+# TODO
+
+- [ ] Implement multi-plan app subscription UI (1/3/6/12 months) in `Frontend/src/pages/SettingsPage.jsx` with hardcoded prices.
+- [ ] Extend backend subscription endpoints to accept a selected plan duration and compute `amount` + `renewsAt` accordingly in `Backend/controllers/settingsController.js`.
+- [ ] Update backend `createSubscriptionOrder` and `verifySubscriptionPayment` to use the selected plan passed from frontend.
+- [ ] Ensure backend stores plan duration/label in payment record if needed (or derive from saved notes).
+
+- [ ] Ensure frontend calls `/settings/subscription/order` with selected plan and displays it in UI responses.
+- [ ] Run quick build/test commands (frontend) to ensure no syntax/runtime issues.
 
