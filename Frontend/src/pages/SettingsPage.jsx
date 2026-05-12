@@ -361,7 +361,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-[1.5rem] bg-gradient-to-br from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 sm:rounded-[1.75rem] sm:p-5 min-[520px]:grid-cols-[minmax(0,1fr)_auto] min-[520px]:items-center">
+      <section className="grid gap-4 rounded-[1.5rem] bg-gradient-to-br from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 sm:rounded-[1.75rem] sm:p-5">
         <div className="min-w-0">
           <strong className="block break-words text-2xl font-extrabold">You are {subscriptionPlan}</strong>
           <p className="m-0 mt-2 break-words">
@@ -376,14 +376,6 @@ export default function SettingsPage() {
             </p>
           ) : null}
         </div>
-        <button
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-white/20 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={Boolean(subscriptionAction)}
-          onClick={() => handleSubscriptionAction("RENEW")}
-          type="button"
-        >
-          {subscriptionAction === "RENEW" ? "Opening..." : "Pay & Renew"}
-        </button>
       </section>
 
       <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
@@ -394,14 +386,14 @@ export default function SettingsPage() {
               {subscriptionPlan} plan is {subscriptionStatus.toLowerCase()}
             </p>
           </div>
-          <button
+          {/* <button
             className={subscriptionStatus === "CANCELED" ? "inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" : "inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5"}
             disabled={Boolean(subscriptionAction)}
             onClick={() => handleSubscriptionAction(subscriptionStatus === "CANCELED" ? "RESTORE" : "CANCEL")}
             type="button"
           >
             {subscriptionStatus === "CANCELED" ? "Restore" : "Cancel"}
-          </button>
+          </button> */}
         </div>
 
         <div className="mt-2 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -437,7 +429,7 @@ export default function SettingsPage() {
             onClick={() => handleSubscriptionAction("RENEW")}
             type="button"
           >
-            {subscriptionAction === "RENEW" ? "Opening..." : "Pay & Subscribe"}
+            {subscriptionAction === "RENEW" ? "Opening..." : "Renew & Subscribe"}
           </button>
         </div>
 
