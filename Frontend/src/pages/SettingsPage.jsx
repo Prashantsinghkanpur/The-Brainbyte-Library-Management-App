@@ -387,7 +387,7 @@ export default function SettingsPage() {
             </p>
           </div>
           <button
-            className={subscriptionStatus === "CANCELED" ? "inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" : "inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5"}
+            className={subscriptionStatus === " CANCELED" ? "inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" : "inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5"}
             disabled={Boolean(subscriptionAction)}
             onClick={() => handleSubscriptionAction(subscriptionStatus === "CANCELED" ? "RESTORE" : "CANCEL")}
             type="button"
