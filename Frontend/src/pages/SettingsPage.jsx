@@ -387,7 +387,7 @@ export default function SettingsPage() {
             type="button"
           >
             {subscriptionStatus === "CANCELED" ? "Restore" : "Cancel"}
-          </button>
+          </button> 
         </div>
 
         <div className="flex items-start justify-between gap-3 py-3">
