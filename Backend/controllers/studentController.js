@@ -1,6 +1,8 @@
 const Student = require("../models/student");
+const FormerMember = require("../models/FormerMember");
 const Counter = require("../models/Counter");
 const { ensureHallCapacity } = require("./seatController");
+const mongoose = require("mongoose");
 
 const normalizeDate = (value) => {
   if (!value) return null;
@@ -58,8 +60,28 @@ const getNextMemberId = async (libraryId) => {
   return counter.value;
 };
 
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
 // ADD STUDENT
 exports.addStudent = async (req, res) => {
+  const User = require("../models/User");
+  const user = await User.findById(req.user.userId);
+  const studentCount = await Student.countDocuments({
+    libraryId: req.user.libraryId
+  });
+
+  const isProActive =
+    user?.subscriptionPlan === "PRO" &&
+    user?.subscriptionStatus === "ACTIVE" &&
+    user?.subscriptionRenewsAt &&
+    new Date(user.subscriptionRenewsAt).getTime() > Date.now();
+
+  if (!isProActive && studentCount >= 5) {
+    return res.status(402).json({
+      msg: "Free plan allows up to 5 students. Please subscribe to continue."
+    });
+  }
+
   try {
     const {
       name,
@@ -238,6 +260,10 @@ exports.getStudents = async (req, res) => {
 
 exports.getStudentById = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
@@ -253,8 +279,116 @@ exports.getStudentById = async (req, res) => {
   }
 };
 
+exports.archiveStudent = async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    const student = await Student.findOne({
+      _id: req.params.id,
+      libraryId: req.user.libraryId
+    });
+
+    if (!student) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    const studentData = student.toObject();
+    delete studentData._id;
+    delete studentData.__v;
+    delete studentData.createdAt;
+    delete studentData.updatedAt;
+
+    const formerMember = await FormerMember.create({
+      ...studentData,
+      originalStudentId: student._id,
+      status: "INACTIVE",
+      archivedAt: new Date()
+    });
+
+    await student.deleteOne();
+
+    res.json({
+      msg: "Student moved to former members and seat is now vacant",
+      formerMember
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getFormerMembers = async (req, res) => {
+  try {
+    const { search, sort = "recent" } = req.query;
+    const query = { libraryId: req.user.libraryId };
+
+    if (search) {
+      const trimmedSearch = search.trim();
+      const searchConditions = [
+        { name: { $regex: trimmedSearch, $options: "i" } },
+        { phone: { $regex: trimmedSearch, $options: "i" } },
+        { parentName: { $regex: trimmedSearch, $options: "i" } },
+        { parentPhone: { $regex: trimmedSearch, $options: "i" } },
+        { hallName: { $regex: trimmedSearch, $options: "i" } }
+      ];
+
+      const searchAsNumber = Number(trimmedSearch);
+
+      if (!Number.isNaN(searchAsNumber)) {
+        searchConditions.push(
+          { memberId: searchAsNumber },
+          { seatNumber: searchAsNumber }
+        );
+      }
+
+      query.$or = searchConditions;
+    }
+
+    const sortMap = {
+      recent: { archivedAt: -1 },
+      name: { name: 1 },
+      seat: { seatNumber: 1 },
+      memberId: { memberId: 1 }
+    };
+
+    const formerMembers = await FormerMember.find(query).sort(sortMap[sort] || sortMap.recent);
+
+    res.json(formerMembers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteFormerMember = async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Former member not found" });
+    }
+
+    const formerMember = await FormerMember.findOne({
+      _id: req.params.id,
+      libraryId: req.user.libraryId
+    });
+
+    if (!formerMember) {
+      return res.status(404).json({ msg: "Former member not found" });
+    }
+
+    await formerMember.deleteOne();
+
+    res.json({ msg: "Former member permanently deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.updateStudent = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId

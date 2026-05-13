@@ -150,12 +150,30 @@ export default function AppShell() {
             <NavLink
               key={item.path}
               to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition hover:-translate-y-0.5 ${
+              className={({ isActive }) => {
+                const subscriptionGated =
+                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+
+                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+
+                if (isRenewOnly) {
+                  return "flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition opacity-40 text-slate-400 cursor-not-allowed";
+                }
+
+                return `flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition hover:-translate-y-0.5 ${
                   isActive ? "bg-teal-50 text-teal-700" : "text-slate-700 hover:bg-white"
-                }`
-              }
+                }`;
+              }}
+              onClick={(e) => {
+                const subscriptionGated =
+                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+                if (isRenewOnly) {
+                  e.preventDefault();
+                }
+              }}
             >
+
               <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-xs font-extrabold" aria-hidden="true">
                 <NavIcon name={item.icon} />
               </span>
@@ -220,23 +238,64 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:px-2 lg:hidden">
+      <nav className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:px-2 lg:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) =>
-              `grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] ${
+            className={({ isActive }) => {
+              const subscriptionGated =
+                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+
+              if (isRenewOnly) {
+                return "grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] opacity-40 text-slate-400 cursor-not-allowed";
+              }
+
+              return `grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] ${
                 isActive ? "text-teal-700" : "text-slate-500"
-              }`
-            }
+              }`;
+            }}
+            onClick={(e) => {
+              const subscriptionGated =
+                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
+              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+              if (isRenewOnly) {
+                e.preventDefault();
+              }
+            }}
           >
+
             <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-xs font-extrabold min-[380px]:h-9 min-[380px]:w-9" aria-hidden="true">
               <NavIcon name={item.icon} className="h-[1.125rem] w-[1.125rem]" />
             </span>
             <span className="max-w-full truncate">{item.short}</span>
           </NavLink>
         ))}
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="grid min-w-0 justify-items-center gap-1 rounded-2xl px-0.5 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] text-slate-500 hover:text-teal-700"
+          aria-label="Log out"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-xs font-extrabold min-[380px]:h-9 min-[380px]:w-9" aria-hidden="true">
+            <svg
+              className="h-[1.125rem] w-[1.125rem]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </span>
+          <span className="max-w-full truncate">Log out</span>
+        </button>
       </nav>
     </div>
   );

@@ -2,11 +2,14 @@
   "name": "Brainbyte Library",
   "short_name": "Brainbyte",
   "description": "Mobile-first library management app for students, seats, payments, and reminders.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f4efe5",
   "theme_color": "#103c40",
   "orientation": "portrait",
+  "categories": ["business", "education", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-192.svg",

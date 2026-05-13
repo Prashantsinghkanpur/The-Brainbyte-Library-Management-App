@@ -90,12 +90,18 @@ const occupancyToneClasses = {
 export default function StudentsPage() {
   const { token } = useAuth();
   const [students, setStudents] = useState([]);
+  const [formerMembers, setFormerMembers] = useState([]);
   const [halls, setHalls] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [filters, setFilters] = useState(initialFilters);
+  const [formerSearch, setFormerSearch] = useState("");
+  const [directoryView, setDirectoryView] = useState("active");
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingFormerMembers, setLoadingFormerMembers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [archivingId, setArchivingId] = useState("");
+  const [deletingFormerId, setDeletingFormerId] = useState("");
   const [viewingStudent, setViewingStudent] = useState(null);
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
   const [error, setError] = useState("");
@@ -127,8 +133,26 @@ export default function StudentsPage() {
     }
   };
 
+  const loadFormerMembers = async (search = formerSearch) => {
+    setLoadingFormerMembers(true);
+    setError("");
+
+    try {
+      const searchParams = new URLSearchParams();
+      if (search) searchParams.set("search", search);
+
+      const data = await apiRequest(`/students/former-members${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token });
+      setFormerMembers(data);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoadingFormerMembers(false);
+    }
+  };
+
   useEffect(() => {
     loadData(initialFilters);
+    loadFormerMembers("");
 
     if (new URLSearchParams(window.location.search).get("new") === "1") {
       setShowStudentForm(true);
@@ -151,6 +175,11 @@ export default function StudentsPage() {
   const handleSearchSubmit = (event) => {
     event.preventDefault();
     loadData();
+  };
+
+  const handleFormerSearchSubmit = (event) => {
+    event.preventDefault();
+    loadFormerMembers();
   };
 
   const applyQuickFilter = (nextValues) => {
@@ -183,9 +212,11 @@ export default function StudentsPage() {
   const openStudentForm = () => {
     resetForm();
     setShowStudentForm(true);
-    window.setTimeout(() => {
-      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
+  };
+
+  const closeStudentForm = () => {
+    resetForm();
+    setShowStudentForm(false);
   };
 
   const handleView = async (student) => {
@@ -221,9 +252,6 @@ export default function StudentsPage() {
     });
     setShowStudentForm(true);
     setViewingStudent(null);
-    window.setTimeout(() => {
-      document.getElementById("student-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
   const handleSubmit = async (event) => {
@@ -304,6 +332,47 @@ export default function StudentsPage() {
     }
   };
 
+  const handleArchiveStudent = async (student) => {
+    const confirmed = window.confirm(`Move ${student.name} to former members and free seat #${student.seatNumber}?`);
+
+    if (!confirmed) return;
+
+    setArchivingId(student._id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest(`/students/${student._id}`, { method: "DELETE", token });
+      setSuccess("Student moved to former members. Seat is now vacant.");
+      setViewingStudent(null);
+      await Promise.all([loadData(), loadFormerMembers()]);
+    } catch (archiveError) {
+      setError(getErrorMessage(archiveError));
+    } finally {
+      setArchivingId("");
+    }
+  };
+
+  const handlePermanentDeleteFormerMember = async (member) => {
+    const confirmed = window.confirm(`Permanently delete former member ${member.name}? This cannot be undone.`);
+
+    if (!confirmed) return;
+
+    setDeletingFormerId(member._id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest(`/students/former-members/${member._id}`, { method: "DELETE", token });
+      setSuccess("Former member permanently deleted.");
+      await loadFormerMembers();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
+    } finally {
+      setDeletingFormerId("");
+    }
+  };
+
   return (
     <div className="grid gap-5 sm:gap-6">
       <section className="flex items-start justify-between gap-3 pt-2 sm:pt-4">
@@ -312,13 +381,27 @@ export default function StudentsPage() {
           <h1 className="m-0 mt-1 text-[2.7rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Directory</h1>
         </div>
         <div className="grid min-h-16 min-w-16 shrink-0 place-items-center rounded-3xl bg-teal-50 p-3 text-center text-teal-700 sm:min-h-20 sm:min-w-20">
-          <strong className="text-2xl leading-none sm:text-3xl">{students.length}</strong>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider sm:text-xs">Profiles</span>
+          <strong className="text-2xl leading-none sm:text-3xl">{directoryView === "active" ? students.length : formerMembers.length}</strong>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider sm:text-xs">{directoryView === "active" ? "Profiles" : "Former"}</span>
         </div>
       </section>
 
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
       {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
+
+      <section className="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-300/40 min-[430px]:flex min-[430px]:items-center min-[430px]:justify-between">
+        <div className="grid grid-cols-2 gap-2">
+          <button className={directoryView === "active" ? "min-h-11 rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"} onClick={() => setDirectoryView("active")} type="button">
+            Active Members
+          </button>
+          <button className={directoryView === "former" ? "min-h-11 rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"} onClick={() => { setDirectoryView("former"); loadFormerMembers(); }} type="button">
+            Former Members
+          </button>
+        </div>
+        <p className="m-0 px-2 text-sm font-bold text-slate-500">
+          {students.length} active | {formerMembers.length} former
+        </p>
+      </section>
 
       {viewingStudent ? (
         <>
@@ -423,6 +506,9 @@ export default function StudentsPage() {
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => handleEdit(viewingStudent)} type="button">
               Edit Student
             </button>
+            <button className="min-h-12 rounded-full bg-red-600 px-5 py-3 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={archivingId === viewingStudent._id} onClick={() => handleArchiveStudent(viewingStudent)} type="button">
+              {archivingId === viewingStudent._id ? "Moving..." : "Move to Former"}
+            </button>
             <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => setViewingStudent(null)} type="button">
               Back to List
             </button>
@@ -431,6 +517,7 @@ export default function StudentsPage() {
         </>
       ) : null}
 
+      {directoryView === "active" ? (
       <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <form onSubmit={handleSearchSubmit}>
           <input
@@ -492,7 +579,9 @@ export default function StudentsPage() {
           </button>
         </div>
       </section>
+      ) : null}
 
+      {directoryView === "active" ? (
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="m-0 text-2xl font-extrabold">Profiles</h3>
@@ -568,6 +657,9 @@ export default function StudentsPage() {
                   <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" disabled={loadingStudentDetail} onClick={() => handleView(student)} type="button">
                     {loadingStudentDetail ? "Opening..." : "View"}
                   </button>
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={archivingId === student._id} onClick={() => handleArchiveStudent(student)} type="button">
+                    {archivingId === student._id ? "Moving..." : "Move Former"}
+                  </button>
                   <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.welcomeLinks.whatsapp} target="_blank" rel="noreferrer">
                     Welcome WhatsApp
                   </a>
@@ -593,11 +685,94 @@ export default function StudentsPage() {
           {!loading && students.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No students found for the current filters.</div> : null}
         </div>
       </section>
+      ) : (
+      <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
+        <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="m-0 text-2xl font-extrabold">Former Members</h3>
+            <p className="m-0 mt-1 text-sm font-bold text-slate-500">Archived students keep their data here while their seats stay vacant.</p>
+          </div>
+          <form className="grid gap-2 sm:w-80" onSubmit={handleFormerSearchSubmit}>
+            <input
+              className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+              name="formerSearch"
+              placeholder="Search former members..."
+              value={formerSearch}
+              onChange={(event) => setFormerSearch(event.target.value)}
+            />
+          </form>
+        </div>
 
-      {showStudentForm ? (
-      <section id="student-form-section" className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="m-0 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
+        <div className="grid gap-4">
+          {formerMembers.map((member) => (
+            <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={member._id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-700 text-lg font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{member.name.slice(0, 2).toUpperCase()}</div>
+                <div className="min-w-0 flex-1">
+                  <strong className="block break-words leading-tight">{member.name}</strong>
+                  <p className="m-0 mt-1 text-xs text-slate-500 sm:text-sm">MEMBER ID: #{member.memberId}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[11px] font-extrabold text-slate-600 sm:text-xs">FORMER</span>
+              </div>
+
+              <div className="grid gap-3 min-[430px]:grid-cols-2">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
+                  <p className="m-0 mt-1 break-words">{member.phone}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Former Seat</span>
+                  <p className="m-0 mt-1 break-words">{member.hallName} - #{member.seatNumber}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
+                  <p className="m-0 mt-1 break-words">{member.parentName || "-"}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
+                  <p className="m-0 mt-1 break-words">{member.parentPhone || "-"}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
+                  <p className="m-0 mt-1 break-words">{formatDate(member.joinedDate)}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Moved To Former</span>
+                  <p className="m-0 mt-1 break-words">{formatDate(member.archivedAt)}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Record</span>
+                <p className="m-0 break-words">{member.plan} | {formatCurrency(member.feeAmount)} | {formatDate(member.membershipStartDate)} - {formatDate(member.paidTill)}</p>
+                <p className="m-0 break-words text-sm text-slate-500">{member.notes || "No notes added."}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center justify-center rounded-full bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-600">{member.shift}</span>
+                <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 py-2 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingFormerId === member._id} onClick={() => handlePermanentDeleteFormerMember(member)} type="button">
+                  {deletingFormerId === member._id ? "Deleting..." : "Permanent Delete"}
+                </button>
+              </div>
+            </article>
+          ))}
+          {!loadingFormerMembers && formerMembers.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No former members found.</div> : null}
+        </div>
+      </section>
+      )}
+
+      {directoryView === "active" && showStudentForm ? (
+      <>
+      <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={closeStudentForm} type="button" aria-label="Close student form" />
+      <section className="fixed left-1/2 top-6 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER FORM</p>
+            <h3 className="m-0 mt-1 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
+          </div>
+          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={closeStudentForm} type="button">
+            Close
+          </button>
         </div>
 
         <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -674,14 +849,13 @@ export default function StudentsPage() {
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={submitting} type="submit">
               {submitting ? "Saving..." : editingId ? "Update Student" : "Add Student"}
             </button>
-            {editingId ? (
-              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => { resetForm(); setShowStudentForm(false); }} type="button">
-                Cancel
-              </button>
-            ) : null}
+            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={closeStudentForm} type="button">
+              Cancel
+            </button>
           </div>
         </form>
       </section>
+      </>
       ) : null}
     </div>
   );

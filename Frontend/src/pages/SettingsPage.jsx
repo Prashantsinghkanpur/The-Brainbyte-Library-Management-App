@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
+
 const initialProfile = {
   name: "",
   email: "",
@@ -226,6 +227,17 @@ export default function SettingsPage() {
     }
   };
 
+  const [selectedPlanKey, setSelectedPlanKey] = useState("1_MONTH");
+
+  const APP_SUBSCRIPTION_PLANS = [
+    { key: "1_MONTH", label: "1 Month", price: 249 },
+    { key: "3_MONTHS", label: "3 Months", price: 599 },
+    { key: "6_MONTHS", label: "6 Months", price: 999 },
+    { key: "12_MONTHS", label: "1 Year", price: 1799 }
+  ];
+
+  const selectedPlan = APP_SUBSCRIPTION_PLANS.find((p) => p.key === selectedPlanKey) || APP_SUBSCRIPTION_PLANS[0];
+
   const handleSubscriptionAction = async (action) => {
     setSubscriptionAction(action);
     setError("");
@@ -237,8 +249,10 @@ export default function SettingsPage() {
 
         const order = await apiRequest("/settings/subscription/order", {
           method: "POST",
-          token
+          token,
+          body: { plan: selectedPlanKey }
         });
+
 
         const paymentResult = await new Promise((resolve, reject) => {
           const checkout = new window.Razorpay({
@@ -347,7 +361,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-[1.5rem] bg-gradient-to-br from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 sm:rounded-[1.75rem] sm:p-5 min-[520px]:grid-cols-[minmax(0,1fr)_auto] min-[520px]:items-center">
+      <section className="grid gap-4 rounded-[1.5rem] bg-gradient-to-br from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 sm:rounded-[1.75rem] sm:p-5">
         <div className="min-w-0">
           <strong className="block break-words text-2xl font-extrabold">You are {subscriptionPlan}</strong>
           <p className="m-0 mt-2 break-words">
@@ -362,18 +376,10 @@ export default function SettingsPage() {
             </p>
           ) : null}
         </div>
-        <button
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-white/20 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={Boolean(subscriptionAction)}
-          onClick={() => handleSubscriptionAction("RENEW")}
-          type="button"
-        >
-          {subscriptionAction === "RENEW" ? "Opening..." : "Pay & Renew"}
-        </button>
       </section>
 
       <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
-        <div className="grid gap-3 py-3 min-[430px]:flex min-[430px]:items-start min-[430px]:justify-between">
+        <div className="flex items-start justify-between gap-3 py-3">
           <div className="min-w-0">
             <strong className="block break-words">Manage Subscription</strong>
             <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
@@ -387,8 +393,46 @@ export default function SettingsPage() {
             type="button"
           >
             {subscriptionStatus === "CANCELED" ? "Restore" : "Cancel"}
-          </button> 
+          </button>
         </div>
+
+        <div className="mt-2 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {APP_SUBSCRIPTION_PLANS.map((plan) => {
+            const active = plan.key === selectedPlanKey;
+            return (
+              <button
+                key={plan.key}
+                type="button"
+                onClick={() => setSelectedPlanKey(plan.key)}
+                disabled={Boolean(subscriptionAction)}
+                className={active ? "rounded-3xl border border-teal-200 bg-teal-50 p-4 text-left transition hover:-translate-y-0.5" : "rounded-3xl border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-0.5"}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <strong className="break-words text-base font-extrabold">{plan.label}</strong>
+                  <span className={active ? "inline-flex rounded-full bg-teal-100 px-3 py-1 text-xs font-extrabold text-teal-700" : "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-700"}>
+                    {formatCurrency(plan.price)}
+                  </span>
+                </div>
+                {
+                  plan.label === '1 Year' &&           <p className=" text-center font-extrabold  m-0 mt-2 text-sm text-slate-500">Best value</p>
+                }
+      
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-center justify-end">
+          <button
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-6 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={Boolean(subscriptionAction)}
+            onClick={() => handleSubscriptionAction("RENEW")}
+            type="button"
+          >
+            {subscriptionAction === "RENEW" ? "Opening..." : "Renew & Subscribe"}
+          </button>
+        </div>
+
 
         <div className="flex items-start justify-between gap-3 py-3">
           <div className="min-w-0">
