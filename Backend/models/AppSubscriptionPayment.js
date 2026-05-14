@@ -38,6 +38,18 @@ const appSubscriptionPaymentSchema = new mongoose.Schema({
     enum: ["PRO"],
     default: "PRO"
   },
+  subscriptionPlanKey: {
+    type: String,
+    trim: true
+  },
+  subscriptionPlanLabel: {
+    type: String,
+    trim: true
+  },
+  subscriptionPlanDays: {
+    type: Number,
+    min: 1
+  },
   status: {
     type: String,
     enum: ["CREATED", "PAID", "FAILED"],

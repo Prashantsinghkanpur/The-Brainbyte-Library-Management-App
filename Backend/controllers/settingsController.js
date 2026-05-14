@@ -120,11 +120,184 @@ const createRazorpayOrder = ({ amount, currency, receipt, notes }) => {
   });
 };
 
+const fetchRazorpayOrder = (orderId) => {
+  const { keyId, keySecret } = getRazorpayCredentials();
+  const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      {
+        hostname: "api.razorpay.com",
+        path: `/v1/orders/${orderId}`,
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${authHeader}`
+        }
+      },
+      (response) => {
+        let body = "";
+
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+
+        response.on("end", () => {
+          let parsedBody = {};
+
+          try {
+            parsedBody = body ? JSON.parse(body) : {};
+          } catch (err) {
+            return reject(new Error("Razorpay returned an invalid order response"));
+          }
+
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return resolve(parsedBody);
+          }
+
+          reject(new Error(parsedBody.error?.description || "Unable to fetch Razorpay order"));
+        });
+      }
+    );
+
+    request.on("error", reject);
+    request.end();
+  });
+};
+
+const fetchRazorpayOrderPayments = (orderId) => {
+  const { keyId, keySecret } = getRazorpayCredentials();
+  const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      {
+        hostname: "api.razorpay.com",
+        path: `/v1/orders/${orderId}/payments`,
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${authHeader}`
+        }
+      },
+      (response) => {
+        let body = "";
+
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+
+        response.on("end", () => {
+          let parsedBody = {};
+
+          try {
+            parsedBody = body ? JSON.parse(body) : {};
+          } catch (err) {
+            return reject(new Error("Razorpay returned an invalid payment response"));
+          }
+
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return resolve(Array.isArray(parsedBody?.items) ? parsedBody.items : []);
+          }
+
+          reject(new Error(parsedBody.error?.description || "Unable to fetch Razorpay order payments"));
+        });
+      }
+    );
+
+    request.on("error", reject);
+    request.end();
+  });
+};
+
 const buildRenewalDate = (currentRenewal, planDays) => {
   const renewalBase = currentRenewal ? new Date(currentRenewal) : new Date();
   const safeBase = renewalBase > new Date() ? renewalBase : new Date();
   safeBase.setDate(safeBase.getDate() + planDays);
   return safeBase;
+};
+
+const getStoredSubscriptionPlanDays = async (paymentRecord) => {
+  const storedPlanDays = Number(paymentRecord.subscriptionPlanDays || 0);
+  if (storedPlanDays > 0) {
+    return storedPlanDays;
+  }
+
+  const order = await fetchRazorpayOrder(paymentRecord.razorpayOrderId);
+  const subscriptionPlanKey = String(order?.notes?.subscriptionPlanKey || "").toUpperCase();
+  const subscriptionPlanLabel = String(order?.notes?.subscriptionPlanLabel || "").trim();
+  const subscriptionPlanDays = Number(order?.notes?.subscriptionPlanDays || 0);
+
+  if (!subscriptionPlanDays) {
+    return 0;
+  }
+
+  paymentRecord.subscriptionPlanKey = subscriptionPlanKey || paymentRecord.subscriptionPlanKey;
+  paymentRecord.subscriptionPlanLabel = subscriptionPlanLabel || paymentRecord.subscriptionPlanLabel;
+  paymentRecord.subscriptionPlanDays = subscriptionPlanDays;
+
+  if (!paymentRecord.amount && Number(order?.amount || 0) > 0) {
+    paymentRecord.amount = Number(order.amount) / 100;
+  }
+
+  await paymentRecord.save();
+  return subscriptionPlanDays;
+};
+
+const syncPendingSubscriptionPayment = async (user, paymentRecord) => {
+  if (!paymentRecord || paymentRecord.status !== "CREATED") {
+    return false;
+  }
+
+  const subscriptionPlanDays = await getStoredSubscriptionPlanDays(paymentRecord);
+  if (!subscriptionPlanDays) {
+    return false;
+  }
+
+  const order = await fetchRazorpayOrder(paymentRecord.razorpayOrderId);
+  if (String(order?.status || "").toLowerCase() !== "paid") {
+    return false;
+  }
+
+  const payments = await fetchRazorpayOrderPayments(paymentRecord.razorpayOrderId);
+  const successfulPayment = payments.find(
+    (payment) => payment?.captured || ["captured", "authorized"].includes(String(payment?.status || "").toLowerCase())
+  );
+
+  const renewsAt = buildRenewalDate(user.subscriptionRenewsAt, subscriptionPlanDays);
+
+  paymentRecord.status = "PAID";
+  paymentRecord.razorpayPaymentId = successfulPayment?.id || paymentRecord.razorpayPaymentId;
+  paymentRecord.paidAt = paymentRecord.paidAt || (
+    successfulPayment?.created_at
+      ? new Date(Number(successfulPayment.created_at) * 1000)
+      : new Date()
+  );
+  paymentRecord.renewsAt = renewsAt;
+
+  user.subscriptionPlan = "PRO";
+  user.subscriptionStatus = "ACTIVE";
+  user.subscriptionRenewsAt = renewsAt;
+
+  await paymentRecord.save();
+  await user.save();
+  return true;
+};
+
+const syncLatestPendingSubscription = async (user) => {
+  if (!user?._id || !user?.libraryId) {
+    return false;
+  }
+
+  try {
+    const latestPendingPayment = await AppSubscriptionPayment.findOne({
+      userId: user._id,
+      libraryId: user.libraryId,
+      status: "CREATED"
+    }).sort({ createdAt: -1 });
+
+    return syncPendingSubscriptionPayment(user, latestPendingPayment);
+  } catch (err) {
+    return false;
+  }
 };
 
 
@@ -161,6 +334,18 @@ const getUserAndLibrary = async (req) => {
   return { user, library };
 };
 
+// Public endpoint helpers (no auth)
+const buildPublicQRResponse = (library, seatGrid = null) => {
+  if (!library) return null;
+
+  return {
+    libraryId: library._id.toString(),
+    libraryName: library.name,
+    seatCount: Number(library.seatCount || 0),
+    seatGrid
+  };
+};
+
 const refreshExpiredSubscription = (user) => {
   if (
     user.subscriptionStatus === "ACTIVE" &&
@@ -182,11 +367,15 @@ const buildSubscriptionResponse = (user, libraryOrPayment = null) => {
       )
     : 0;
 
-  const pricing = libraryOrPayment?.amountPerSeat
+  const hasPaymentPricing =
+    typeof libraryOrPayment?.amount === "number" &&
+    typeof libraryOrPayment?.seatCount === "number";
+
+  const pricing = hasPaymentPricing
     ? {
         amount: libraryOrPayment.amount,
-        amountPerSeat: libraryOrPayment.amountPerSeat,
-        seatCount: libraryOrPayment.seatCount
+        amountPerSeat: libraryOrPayment.amountPerSeat || 0,
+        seatCount: libraryOrPayment.seatCount || 0
       }
     : getSubscriptionPricing(libraryOrPayment);
 
@@ -207,6 +396,7 @@ exports.getSettingsProfile = async (req, res) => {
       return res.status(404).json({ msg: "Profile not found" });
     }
 
+    await syncLatestPendingSubscription(user);
     refreshExpiredSubscription(user);
     if (user.isModified("subscriptionStatus")) {
       await user.save();
@@ -342,6 +532,7 @@ exports.getSubscription = async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
+    await syncLatestPendingSubscription(user);
     refreshExpiredSubscription(user);
     if (user.isModified("subscriptionStatus")) {
       await user.save();
@@ -370,14 +561,37 @@ exports.updateSubscription = async (req, res) => {
     const normalizedAction = action.toUpperCase();
 
     if (normalizedAction === "RESTORE") {
-      const renewalBase = buildRenewalDate(user.subscriptionRenewsAt);
+      await syncLatestPendingSubscription(user);
+      refreshExpiredSubscription(user);
+
+      const latestPaidSubscription = await AppSubscriptionPayment.findOne({
+        userId: user._id,
+        libraryId: user.libraryId,
+        status: "PAID",
+        renewsAt: { $gt: new Date() }
+      }).sort({ renewsAt: -1, paidAt: -1, createdAt: -1 });
+
+      const hasValidPaidAccess =
+        latestPaidSubscription ||
+        (
+          user.subscriptionPlan === "PRO" &&
+          user.subscriptionRenewsAt &&
+          new Date(user.subscriptionRenewsAt).getTime() > Date.now()
+        );
+
+      if (!hasValidPaidAccess) {
+        return res.status(400).json({ msg: "No paid subscription found to restore. Please renew through checkout." });
+      }
+
       user.subscriptionPlan = "PRO";
       user.subscriptionStatus = "ACTIVE";
-      user.subscriptionRenewsAt = renewalBase;
+      if (latestPaidSubscription?.renewsAt) {
+        user.subscriptionRenewsAt = latestPaidSubscription.renewsAt;
+      }
     } else if (normalizedAction === "RENEW") {
       return res.status(400).json({ msg: "Use Razorpay checkout to renew" });
     } else if (normalizedAction === "CANCEL") {
-      user.subscriptionStatus = "CANCELED";
+      return res.status(400).json({ msg: "Cancellation is not needed for one-time plans. Your paid access stays active until expiry." });
     } else {
       return res.status(400).json({ msg: "action must be RENEW, RESTORE or CANCEL" });
     }
@@ -385,6 +599,10 @@ exports.updateSubscription = async (req, res) => {
     await user.save();
 
     const library = await Library.findById(user.libraryId);
+    // IMPORTANT: subscriptionStatus must be immediately updated for ProtectedRoute gating
+    // to work after payment/restore/cancel.
+    refreshExpiredSubscription(user);
+
     res.json(buildSubscriptionResponse(user, library));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -443,6 +661,9 @@ exports.createSubscriptionOrder = async (req, res) => {
       amountPerSeat: 0,
       currency: order.currency || "INR",
       razorpayOrderId: order.id,
+      subscriptionPlanKey: String(plan).toUpperCase(),
+      subscriptionPlanLabel: normalizedPlan.label,
+      subscriptionPlanDays: normalizedPlan.days,
       status: "CREATED",
       plan: "PRO"
     });
@@ -517,7 +738,7 @@ exports.verifySubscriptionPayment = async (req, res) => {
       return res.status(400).json({ msg: "Payment verification failed" });
     }
 
-    const subscriptionPlanDays = Number(paymentRecord.subscriptionPlanDays || 0);
+    const subscriptionPlanDays = await getStoredSubscriptionPlanDays(paymentRecord);
     if (!subscriptionPlanDays) {
       return res.status(400).json({ msg: "Subscription plan days not found" });
     }
@@ -568,5 +789,138 @@ exports.getBillingHistory = async (req, res) => {
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Public: QR seat snapshot + full seat grid (public / no auth)
+exports.getPublicSeatSnapshot = async (req, res) => {
+  try {
+    const { libraryId } = req.params;
+
+    if (!libraryId) {
+      return res.status(400).json({ msg: "libraryId is required" });
+    }
+
+    const library = await Library.findById(libraryId);
+    if (!library) {
+      return res.status(404).json({ msg: "Library not found" });
+    }
+
+    // Fetch halls + students publicly (no auth)
+    // This matches the same seat grid behavior as /api/seats/grid:
+    // - pick Main Hall (or first hall)
+    // - build per-seat tiles up to hall.totalSeats
+    const Hall = require("../models/Hall");
+    const Student = require("../models/student");
+
+    let halls = await Hall.find({
+      libraryId,
+      isActive: true
+    }).sort({ createdAt: 1 });
+
+    // Ensure library seats visibility like seatController does
+    const librarySeatCount = Number(library?.seatCount || 0);
+    if (librarySeatCount > 0) {
+      if (halls.length === 0) {
+        halls = [
+          await Hall.create({
+            libraryId,
+            name: "Main Hall",
+            totalSeats: librarySeatCount
+          })
+        ];
+      } else {
+        const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
+        if (totalHallSeats < librarySeatCount) {
+          const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
+          mainHall.totalSeats += librarySeatCount - totalHallSeats;
+          await mainHall.save();
+        }
+      }
+    }
+
+    const selectedHall = halls.find((hall) => hall.name === "Main Hall") || halls[0] || null;
+
+    const allStudents = await Student.find({
+      libraryId
+    }).sort({ hallName: 1, seatNumber: 1 });
+
+    const totalSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
+    const filledSeats = allStudents.length;
+
+    if (!selectedHall) {
+      return res.json(
+        buildPublicQRResponse(library, {
+          summary: {
+            filledSeats,
+            vacantSeats: Math.max(0, totalSeats - filledSeats),
+            totalStudents: allStudents.length,
+            totalSeats
+          },
+          halls: [],
+          selectedHall: null,
+          seats: []
+        })
+      );
+    }
+
+    const selectedStudents = allStudents.filter((s) => s.hallName === selectedHall.name);
+    const studentMap = new Map(selectedStudents.map((s) => [s.seatNumber, s]));
+
+    const getDuesState = (student) => {
+      if (!student?.paidTill) return "UNPAID";
+      const endDate = new Date(student.paidTill);
+      endDate.setHours(23, 59, 59, 999);
+      return endDate >= new Date() ? "PAID" : "UNPAID";
+    };
+
+    const getDaysRemaining = (paidTill) => {
+      if (!paidTill) return 0;
+      const target = new Date(paidTill);
+      target.setHours(23, 59, 59, 999);
+      const diffMs = target.getTime() - Date.now();
+      return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    };
+
+    const seats = [];
+
+    for (let seatNumber = 1; seatNumber <= selectedHall.totalSeats; seatNumber += 1) {
+      const student = studentMap.get(seatNumber) || null;
+      const occupancyStatus = student ? "OCCUPIED" : "VACANT";
+      const duesState = student ? getDuesState(student) : null;
+
+      seats.push({
+        seatNumber,
+        hallName: selectedHall.name,
+        occupancyStatus,
+        student: student
+          ? {
+              id: student._id,
+              memberId: student.memberId,
+              name: student.name,
+              shift: student.shift,
+              status: student.status,
+              duesState,
+              daysRemaining: getDaysRemaining(student.paidTill)
+            }
+          : null
+      });
+    }
+
+    return res.json(
+      buildPublicQRResponse(library, {
+        summary: {
+          filledSeats,
+          vacantSeats: Math.max(0, totalSeats - filledSeats),
+          totalStudents: allStudents.length,
+          totalSeats
+        },
+        halls,
+        selectedHall,
+        seats
+      })
+    );
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 };

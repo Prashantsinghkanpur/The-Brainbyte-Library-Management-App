@@ -114,6 +114,22 @@ export default function DashboardPage() {
     { title: "Pending Dues", value: analytics?.pendingStudents ?? 0, tone: "purple" },
     { title: "Monthly Earnings", value: formatCurrency(analytics?.monthlyRevenue), tone: "orange" }
   ];
+  const classicManageItems = [
+    ["Students", () => navigate("/students"), "S"],
+    ["Seats", () => navigate("/seats"), "G"],
+    ["Payments", () => navigate("/payments"), "P"],
+    ["Shifts", () => navigate("/seats"), "L"],
+    ["Analytics", () => navigate("/analytics"), "A"],
+    ["Student ID", () => navigate("/students"), "ID"]
+  ];
+  const classicToolsItems = [
+    ["Community", () => openInfoPopup("community"), "C"],
+    ["QR Code", () => openInfoPopup("qr"), "QR"],
+    ["Branding", () => openInfoPopup("branding"), "B"],
+    ["Owner", () => openInfoPopup("owner"), "O"],
+    ["Support", () => openInfoPopup("help"), "H"],
+    ["Settings", () => navigate("/settings"), "ST"]
+  ];
   const referralCode = `BB-${String(user?.id || user?.libraryId || "ADMIN").slice(-6).toUpperCase()}`;
   const libraryName = libraryProfile?.name || "Brainbyte Library";
   const libraryAddress = libraryProfile?.address || "Address not added";
@@ -348,7 +364,8 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-teal-600 to-sky-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("member")} type="button">
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-teal-600 to-sky-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => navigate("/students?new=1")} type="button">
+
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 text-2xl font-black sm:h-14 sm:w-14" aria-hidden="true">+</div>
         <div className="min-w-0">
           <strong className="block break-words text-xl leading-tight sm:text-2xl">New Member</strong>
@@ -650,7 +667,8 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 lg:bottom-6" onClick={() => setActivePromo("member")} type="button">
+      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 lg:bottom-6" onClick={() => navigate("/students?new=1")} type="button">
+
         <span>+</span>
         New Member
       </button>
@@ -730,15 +748,8 @@ export default function DashboardPage() {
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Manage</h3>
             <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
-              {[
-                ["Students", "/students", "S"],
-                ["Seats", "/seats", "G"],
-                ["Payments", "/payments", "P"],
-                ["Shifts", "/seats", "L"],
-                ["Analytics", "/analytics", "A"],
-                ["Student ID", "/students", "ID"]
-              ].map(([label, path, icon]) => (
-                <button key={label} className="grid min-h-36 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={() => navigate(path)} type="button">
+              {classicManageItems.map(([label, onClick, icon]) => (
+                <button key={label} className="grid min-h-36 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={onClick} type="button">
                   <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 text-blue-100">{icon}</span>
                   {label}
                 </button>
@@ -749,30 +760,14 @@ export default function DashboardPage() {
           <section className="grid gap-4">
             <h3 className="m-0 text-2xl font-black">Tools & More</h3>
             <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
-              {[
-                ["WhatsApp", "community", "W"],
-                ["QR Code", "qr", "QR"],
-                ["Branding", "branding", "B"],
-                ["Refer & Earn", "refer", "R"],
-                ["Community", "community", "C"]
-              ].map(([label, popup, icon]) => (
-                <button key={label} className="grid min-h-32 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={() => openInfoPopup(popup)} type="button">
+              {classicToolsItems.map(([label, onClick, icon]) => (
+                <button key={label} className="grid min-h-32 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={onClick} type="button">
                   <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 text-amber-100">{icon}</span>
                   {label}
                 </button>
               ))}
             </div>
           </section>
-
-          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-emerald-400/25 bg-emerald-950 p-5 text-left text-white shadow-lg shadow-emerald-950/25" onClick={() => openInfoPopup("help")} type="button">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-emerald-100">H</span>
-            <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Need Help?</strong><span className="font-bold text-emerald-100/70">Support is one message away</span></span>
-          </button>
-
-          <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-blue-400/25 bg-blue-950 p-5 text-left text-white shadow-lg shadow-blue-950/25" onClick={() => openInfoPopup("refer")} type="button">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-blue-100">I</span>
-            <span className="min-w-0 flex-1"><strong className="block text-xl font-black text-white">Invite a Friend</strong><span className="font-bold text-blue-100/70">Help other library owners simplify work.</span></span>
-          </button>
 
           <button className="grid gap-3 rounded-[1.75rem] border border-amber-300/25 bg-amber-950 p-6 text-center text-white shadow-lg shadow-amber-950/25" onClick={() => openInfoPopup("rate")} type="button">
             <strong className="text-3xl text-amber-200">5 Stars</strong>

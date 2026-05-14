@@ -10,6 +10,8 @@ import RegisterPage from "./pages/RegisterPage";
 import SeatsPage from "./pages/SeatsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StudentsPage from "./pages/StudentsPage";
+import QRCodePublicLanding from "./pages/QRCodePublicLanding";
+import SeatQRPublicPage from "./pages/SeatQRPublicPage";
 import { useAuth } from "./context/AuthContext";
 
 function PublicLanding() {
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/" element={<PublicLanding />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/public/qr" element={<QRCodePublicLanding />} />
+      <Route path="/public/qr/seats/:libraryId" element={<SeatQRPublicPage />} />
       <Route
         element={
           <ProtectedRoute>
