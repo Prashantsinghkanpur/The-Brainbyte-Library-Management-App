@@ -25,35 +25,31 @@ const monthOptions = [
 
 const getMethodTotal = (methods, method) => methods?.[method]?.total || 0;
 
-function MetricCard({ title, value, detail, mobileDetail, note, accent }) {
+function MetricCard({ title, value, detail, accent }) {
   const accentClasses = {
-    teal: "bg-cyan-50 text-cyan-600",
-    blue: "bg-indigo-50 text-indigo-500",
-    rose: "bg-rose-50 text-rose-500",
-    green: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-500",
-    yellow: "bg-yellow-50 text-yellow-500",
-    pink: "bg-pink-50 text-pink-500"
+    teal: "bg-cyan-50 text-cyan-700",
+    blue: "bg-indigo-50 text-indigo-700",
+    rose: "bg-rose-50 text-rose-700",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    yellow: "bg-yellow-50 text-yellow-700",
+    pink: "bg-pink-50 text-pink-700"
   };
 
   return (
-    <article className="flex h-full min-w-0 flex-col gap-3 overflow-hidden rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.25rem] min-[380px]:p-3.5 sm:p-5">
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-[0.9rem] text-sm font-black min-[380px]:h-10 min-[380px]:w-10 min-[380px]:text-base sm:h-12 sm:w-12 sm:text-lg ${accentClasses[accent] || accentClasses.teal}`}>
-          {title.slice(0, 1)}
-        </div>
+    <article className="min-w-0 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.5rem] sm:p-5">
+      <div className={`grid h-9 w-9 place-items-center rounded-2xl text-sm font-black min-[380px]:h-10 min-[380px]:w-10 ${accentClasses[accent] || accentClasses.teal}`}>
+        {title.slice(0, 1)}
       </div>
-      <div className="min-w-0">
-        <h3 className="m-0 text-[0.88rem] font-extrabold leading-tight text-slate-700 min-[380px]:text-[0.95rem] sm:text-lg">{title}</h3>
-        <strong className="mt-2 block min-w-0 break-words text-[1.35rem] font-black leading-none text-slate-950 min-[380px]:text-[1.55rem] sm:mt-3 sm:text-4xl">
-          {value}
-        </strong>
-        <p className="m-0 mt-2 min-w-0 break-words text-[11px] font-extrabold leading-snug text-teal-700 min-[380px]:text-xs sm:mt-3 sm:text-sm">
-          <span className="sm:hidden">{mobileDetail || detail}</span>
-          <span className="hidden sm:inline">{detail}</span>
-        </p>
-        {note ? <p className="m-0 mt-2 hidden text-xs font-bold text-slate-500 sm:block">{note}</p> : null}
-      </div>
+      <h3 className="m-0 mt-3 min-w-0 break-words text-[0.9rem] font-extrabold leading-tight text-slate-800 min-[380px]:text-[0.98rem] sm:text-lg">
+        {title}
+      </h3>
+      <strong className="mt-2 block min-w-0 break-words text-[1.45rem] font-black leading-none text-slate-950 min-[380px]:text-[1.7rem] sm:text-4xl">
+        {value}
+      </strong>
+      <p className="m-0 mt-2 min-w-0 break-words text-[11px] font-extrabold leading-snug text-teal-700 min-[380px]:text-xs sm:text-sm">
+        {detail}
+      </p>
     </article>
   );
 }
@@ -62,10 +58,10 @@ export default function AnalyticsPage() {
   const { token } = useAuth();
   const [filters, setFilters] = useState({ year: String(currentYear), month: currentMonth });
   const [analytics, setAnalytics] = useState(null);
-  const [expenses, setExpenses] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [breakdownTab, setBreakdownTab] = useState("income");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [activityTab, setActivityTab] = useState("payments");
+  const [recentPayments, setRecentPayments] = useState([]);
+  const [recentExpenses, setRecentExpenses] = useState([]);
   const [error, setError] = useState("");
 
   const queryString = useMemo(() => {
@@ -80,327 +76,315 @@ export default function AnalyticsPage() {
       setError("");
 
       try {
-        const [analyticsData, expenseData, paymentData] = await Promise.all([
+        const [analyticsData, paymentData, expenseData] = await Promise.all([
           apiRequest(`/analytics/summary${queryString}`, { token }),
-          apiRequest(`/expenses${queryString}&sort=latest`.replace("?&", "?"), { token }),
-          apiRequest(`/payments${queryString}&sort=latest`.replace("?&", "?"), { token })
+          apiRequest(`/payments${queryString}&sort=latest`.replace("?&", "?"), { token }),
+          apiRequest(`/expenses${queryString}&sort=latest`.replace("?&", "?"), { token })
         ]);
 
         setAnalytics(analyticsData);
-        setExpenses(expenseData.slice(0, 8));
-        setPayments(paymentData.slice(0, 12));
+        setRecentPayments((paymentData || []).slice(0, 5));
+        setRecentExpenses((expenseData || []).slice(0, 5));
       } catch (loadError) {
         setError(getErrorMessage(loadError));
       }
     };
 
     loadAnalytics();
-  }, [queryString, token, refreshKey]);
+  }, [queryString, token]);
 
-  const selectedMonthLabel = monthOptions.find((month) => month.value === filters.month)?.label || "";
+  const cards = [
+    {
+      title: "Today Revenue",
+      value: formatCurrency(analytics?.todayRevenue),
+      detail: `${formatCurrency(getMethodTotal(analytics?.todayMethods, "CASH"))} cash | ${formatCurrency(getMethodTotal(analytics?.todayMethods, "UPI"))} UPI`,
+      accent: "teal"
+    },
+    {
+      title: "Monthly Revenue",
+      value: formatCurrency(analytics?.monthlyRevenue),
+      detail: `${analytics?.monthlyRevenueTransactions ?? 0} students paid`,
+      accent: "blue"
+    },
+    {
+      title: "Monthly Expenses",
+      value: formatCurrency(analytics?.monthlyExpenses),
+      detail: "Total spending",
+      accent: "rose"
+    },
+    {
+      title: "Net Profit",
+      value: formatCurrency(analytics?.netProfit),
+      detail: "Monthly gain",
+      accent: "green"
+    },
+    {
+      title: "Total Dues",
+      value: formatCurrency(analytics?.totalDues),
+      detail: `${analytics?.pendingStudents ?? 0} pending`,
+      accent: "amber"
+    },
+    {
+      title: "Annual Revenue",
+      value: formatCurrency(analytics?.annualRevenue),
+      detail: "Gross income",
+      accent: "yellow"
+    },
+    {
+      title: "Annual Expenses",
+      value: formatCurrency(analytics?.annualExpenses),
+      detail: "Annual spending",
+      accent: "pink"
+    },
+    {
+      title: "Annual Net Profit",
+      value: formatCurrency(analytics?.annualNetProfit),
+      detail: "Yearly gain",
+      accent: "green"
+    }
+  ];
+  const trendItems = analytics?.monthlyTrend || [];
+  const trendMax = Math.max(1, ...trendItems.flatMap((item) => [item.revenue || 0, item.expenses || 0]));
   const cashTotal = getMethodTotal(analytics?.monthlyMethods, "CASH");
   const upiTotal = getMethodTotal(analytics?.monthlyMethods, "UPI");
-  const methodTotal = Math.max(1, cashTotal + upiTotal);
-  const cashPercent = Math.round((cashTotal / methodTotal) * 100);
-  const trendBarMaxHeight = 132;
-  const trendMax = Math.max(
-    1,
-    ...(analytics?.monthlyTrend || []).flatMap((item) => [item.revenue, item.expenses])
-  );
+  const breakdownItems = breakdownTab === "income"
+    ? [
+        { label: "Total Revenue", value: formatCurrency(analytics?.monthlyRevenue), tone: "text-teal-700 bg-teal-50" },
+        { label: "Cash Collection", value: formatCurrency(cashTotal), tone: "text-cyan-700 bg-cyan-50" },
+        { label: "UPI Collection", value: formatCurrency(upiTotal), tone: "text-indigo-700 bg-indigo-50" },
+        { label: "Students Paid", value: String(analytics?.monthlyRevenueTransactions ?? 0), tone: "text-emerald-700 bg-emerald-50" }
+      ]
+    : [
+        { label: "Total Expenses", value: formatCurrency(analytics?.monthlyExpenses), tone: "text-rose-700 bg-rose-50" },
+        { label: "Net Profit", value: formatCurrency(analytics?.netProfit), tone: "text-emerald-700 bg-emerald-50" },
+        { label: "Total Dues", value: formatCurrency(analytics?.totalDues), tone: "text-amber-700 bg-amber-50" },
+        { label: "Pending Students", value: String(analytics?.pendingStudents ?? 0), tone: "text-orange-700 bg-orange-50" }
+      ];
+  const activityItems = activityTab === "payments" ? recentPayments : recentExpenses;
 
   return (
-    <div className="grid min-w-0 max-w-full gap-3 overflow-hidden sm:gap-6">
-      <section className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-start sm:justify-between sm:pt-4">
-        <div className="min-w-0">
-          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">FINANCIAL</p>
-          <h1 className="m-0 mt-1 text-[2rem] font-black leading-none text-slate-950 min-[380px]:text-[2.8rem] sm:text-7xl">
-            Analytics
-          </h1>
-        </div>
-        <Link
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-900 shadow-lg shadow-slate-300/30 transition hover:-translate-y-0.5 sm:min-h-12 sm:w-auto sm:shrink-0 sm:px-5 sm:py-3 sm:text-base"
-          to="/expenses"
-        >
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-red-500 text-white">+</span>
-          Expense
-        </Link>
-      </section>
-
-      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-
-      <section className="grid gap-3 sm:gap-4">
-        <div className="grid gap-3">
-          <p className="m-0 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-500">Select Year</p>
-          <div className="grid grid-cols-3 gap-2">
-            {yearOptions.map((year) => (
-              <button
-                key={year}
-                type="button"
-                className={
-                  filters.year === year
-                    ? "min-w-0 rounded-3xl bg-teal-700 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20"
-                    : "min-w-0 rounded-3xl border border-slate-200 bg-white px-3 py-3 text-sm font-extrabold text-slate-800 transition hover:-translate-y-0.5"
-                }
-                onClick={() => setFilters((current) => ({ ...current, year }))}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-3">
-          <p className="m-0 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-500">Select Month</p>
-          <div className="grid grid-cols-4 gap-2">
-            {monthOptions.map((month) => (
-              <button
-                key={month.value}
-                type="button"
-                className={
-                  filters.month === month.value
-                    ? "min-w-0 rounded-3xl bg-teal-700 px-2 py-3 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20"
-                    : "min-w-0 rounded-3xl border border-slate-200 bg-white px-2 py-3 text-sm font-extrabold text-slate-800 transition hover:-translate-y-0.5"
-                }
-                onClick={() => setFilters((current) => ({ ...current, month: month.value }))}
-              >
-                {month.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-2 min-[430px]:grid-cols-2 min-[520px]:gap-3">
-          <div className="rounded-2xl bg-amber-50 px-3.5 py-3 text-xs font-extrabold leading-snug text-amber-700 min-[380px]:text-sm">
-            PENDING: Target for all active members.
-          </div>
-          <div className="rounded-2xl bg-indigo-50 px-3.5 py-3 text-xs font-extrabold leading-snug text-indigo-700 min-[380px]:text-sm">
-            PAID: Collections reached so far.
-          </div>
-        </div>
-      </section>
-
-      <section className="grid min-w-0 gap-2.5 [grid-template-columns:repeat(2,minmax(0,1fr))]">
-        <div className="min-w-0">
-          <MetricCard
-            title="Today Revenue"
-            value={formatCurrency(analytics?.todayRevenue)}
-            detail={`Cash: ${formatCurrency(getMethodTotal(analytics?.todayMethods, "CASH"))} | UPI: ${formatCurrency(getMethodTotal(analytics?.todayMethods, "UPI"))}`}
-            mobileDetail={`${formatCurrency(getMethodTotal(analytics?.todayMethods, "CASH"))} cash | ${formatCurrency(getMethodTotal(analytics?.todayMethods, "UPI"))} UPI`}
-            accent="teal"
-          />
-        </div>
-        <div className="min-w-0">
-          <MetricCard
-            title="Monthly Revenue"
-            value={formatCurrency(analytics?.monthlyRevenue)}
-            detail={`${analytics?.monthlyRevenueTransactions ?? 0} Students Paid`}
-            accent="blue"
-          />
-        </div>
-        <div className="min-w-0">
-          <MetricCard
-            title="Monthly Expenses"
-            value={formatCurrency(analytics?.monthlyExpenses)}
-            detail="Total Spending"
-            accent="rose"
-          />
-        </div>
-        <div className="min-w-0">
-          <MetricCard title="Net Profit" value={formatCurrency(analytics?.netProfit)} detail="Monthly Gain" accent="green" />
-        </div>
-        <div className="min-w-0">
-          <MetricCard
-            title="Total Dues"
-            value={formatCurrency(analytics?.totalDues)}
-            detail={`${analytics?.pendingStudents ?? 0} Pending`}
-            accent="amber"
-          />
-        </div>
-        <div className="min-w-0">
-          <MetricCard title="Annual Revenue" value={formatCurrency(analytics?.annualRevenue)} detail="Gross Income" accent="yellow" />
-        </div>
-        <div className="min-w-0">
-          <MetricCard
-            title="Annual Expenses"
-            value={formatCurrency(analytics?.annualExpenses)}
-            detail="Annual Spending"
-            accent="pink"
-          />
-        </div>
-        <div className="min-w-0">
-          <MetricCard
-            title="Annual Net Profit"
-            value={formatCurrency(analytics?.annualNetProfit)}
-            detail="Yearly Gain"
-            accent="green"
-          />
-        </div>
-      </section>
-
-      <section className="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
-        <div className="mb-4 flex items-start justify-between gap-3 sm:mb-6">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-hidden sm:gap-6">
+      <section className="grid gap-4">
+        <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-start sm:justify-between sm:pt-4">
           <div className="min-w-0">
-            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Financial Trend</h3>
-            <p className="m-0 mt-1 text-sm font-bold text-slate-500">Revenue & Expenses for {filters.year}</p>
+            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Financial</p>
+            <h1 className="m-0 mt-1 text-[2rem] font-black leading-none text-slate-950 min-[380px]:text-[2.5rem] sm:text-7xl">
+              Analytics
+            </h1>
           </div>
-          <button
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-teal-50 text-base font-black text-teal-700 sm:h-12 sm:w-12 sm:text-xl"
-            onClick={() => setRefreshKey((current) => current + 1)}
-            type="button"
+          <Link
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-900 shadow-lg shadow-slate-300/20 transition hover:-translate-y-0.5 sm:w-auto sm:px-5 sm:text-base"
+            to="/expenses"
           >
-            R
-          </button>
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-red-500 text-white">+</span>
+            Expense
+          </Link>
         </div>
-        <div className="flex h-44 items-end gap-2 overflow-x-auto border-b border-slate-100 pb-3 min-[380px]:h-48 sm:h-64 sm:gap-3">
-          {(analytics?.monthlyTrend || []).map((item) => {
-            const revenueHeight = Math.max(8, Math.round((item.revenue / trendMax) * trendBarMaxHeight));
-            const expenseHeight = Math.max(8, Math.round((item.expenses / trendMax) * trendBarMaxHeight));
 
-            return (
-              <div className="grid min-w-10 justify-items-center gap-2 min-[380px]:min-w-12 sm:min-w-16" key={item.month}>
-                <div className="flex h-36 items-end gap-1 min-[380px]:h-40 sm:h-52">
-                  <div
-                    className="w-3.5 rounded-t-xl bg-teal-600 min-[380px]:w-4 sm:w-5"
-                    style={{ height: `${revenueHeight}px` }}
-                    title={`Revenue ${formatCurrency(item.revenue)}`}
-                  />
-                  <div
-                    className="w-3.5 rounded-t-xl bg-rose-200 min-[380px]:w-4 sm:w-5"
-                    style={{ height: `${expenseHeight}px` }}
-                    title={`Expenses ${formatCurrency(item.expenses)}`}
-                  />
-                </div>
-                <span className={String(item.month) === filters.month ? "text-xs font-black text-slate-950 min-[380px]:text-sm" : "text-xs font-bold text-slate-500 min-[380px]:text-sm"}>
-                  {monthOptions[item.month - 1].label}
-                </span>
-              </div>
-            );
-          })}
+        {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
+
+        <div className="grid gap-4 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
+          <div className="grid gap-3">
+            <p className="m-0 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-500">Select Year</p>
+            <div className="grid grid-cols-3 gap-2">
+              {yearOptions.map((year) => (
+                <button
+                  key={year}
+                  type="button"
+                  className={
+                    filters.year === year
+                      ? "min-w-0 rounded-3xl bg-teal-700 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20"
+                      : "min-w-0 rounded-3xl border border-slate-200 bg-white px-3 py-3 text-sm font-extrabold text-slate-800 transition hover:-translate-y-0.5"
+                  }
+                  onClick={() => setFilters((current) => ({ ...current, year }))}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <p className="m-0 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-500">Select Month</p>
+            <div className="grid grid-cols-4 gap-2">
+              {monthOptions.map((month) => (
+                <button
+                  key={month.value}
+                  type="button"
+                  className={
+                    filters.month === month.value
+                      ? "min-w-0 rounded-3xl bg-teal-700 px-2 py-3 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20"
+                      : "min-w-0 rounded-3xl border border-slate-200 bg-white px-2 py-3 text-sm font-extrabold text-slate-800 transition hover:-translate-y-0.5"
+                  }
+                  onClick={() => setFilters((current) => ({ ...current, month: month.value }))}
+                >
+                  {month.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-2 min-[430px]:grid-cols-2">
+            <div className="rounded-2xl bg-amber-50 px-3.5 py-3 text-xs font-extrabold leading-snug text-amber-700 min-[380px]:text-sm">
+              PENDING: Target for all active members.
+            </div>
+            <div className="rounded-2xl bg-indigo-50 px-3.5 py-3 text-xs font-extrabold leading-snug text-indigo-700 min-[380px]:text-sm">
+              PAID: Collections reached so far.
+            </div>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-2 gap-2.5">
+          {cards.map((card) => (
+            <div className="min-w-0" key={card.title}>
+              <MetricCard {...card} />
+            </div>
+          ))}
         </div>
       </section>
 
-      <div className="grid grid-cols-2 rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/20">
-        <button
-          className={breakdownTab === "income" ? "min-h-11 rounded-2xl bg-teal-50 px-2 text-sm font-extrabold text-teal-700 sm:min-h-12 sm:text-base" : "min-h-11 rounded-2xl px-2 text-sm font-extrabold text-slate-700 sm:min-h-12 sm:text-base"}
-          onClick={() => setBreakdownTab("income")}
-          type="button"
-        >
-          Income
-        </button>
-        <button
-          className={breakdownTab === "expenses" ? "min-h-11 rounded-2xl bg-rose-50 px-2 text-sm font-extrabold text-rose-600 sm:min-h-12 sm:text-base" : "min-h-11 rounded-2xl px-2 text-sm font-extrabold text-slate-700 sm:min-h-12 sm:text-base"}
-          onClick={() => setBreakdownTab("expenses")}
-          type="button"
-        >
-          Expenses
-        </button>
-      </div>
-
-      <section className="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
-        <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">
-            {breakdownTab === "income" ? "Revenue Breakdown" : "Expense Breakdown"}
-          </h3>
-          <span className="rounded-2xl bg-teal-50 px-4 py-2 text-sm font-extrabold text-teal-700">
-            {selectedMonthLabel} {filters.year}
-          </span>
+      <section className="grid gap-4 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
+        <div className="min-w-0">
+          <h2 className="m-0 text-xl font-black text-slate-950 min-[380px]:text-2xl">Financial Trend</h2>
+          <p className="m-0 mt-1 text-sm font-bold text-slate-500">Revenue and expenses for {filters.year}</p>
         </div>
 
-        {breakdownTab === "income" ? (
-          <div className="grid gap-5">
-            <div className="rounded-3xl bg-teal-50/60 p-4">
-              <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
-                <div className="min-w-0">
-                  <strong className="block text-lg font-black min-[380px]:text-xl">Total Period Revenue</strong>
-                  <p className="m-0 text-sm font-bold text-slate-500">All collectors combined</p>
-                </div>
-                <strong className="break-words text-[1.75rem] font-black text-teal-700 min-[380px]:text-2xl">
-                  {formatCurrency(analytics?.monthlyRevenue)}
-                </strong>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-4 text-sm font-extrabold text-slate-700">
-                <span>Cash: {formatCurrency(cashTotal)}</span>
-                <span>UPI: {formatCurrency(upiTotal)}</span>
-              </div>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-blue-200">
-                <div className="h-full bg-emerald-500" style={{ width: `${cashPercent}%` }} />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-teal-50 font-black text-teal-700">A</div>
-                <div className="min-w-0">
-                  <strong className="block text-lg font-black min-[380px]:text-xl">Admin</strong>
-                  <p className="m-0 text-sm font-bold text-slate-500">Collector</p>
-                </div>
-              </div>
-              <strong className="break-words text-[1.75rem] font-black text-teal-700 min-[380px]:text-2xl">
-                {formatCurrency(analytics?.monthlyRevenue)}
-              </strong>
-            </div>
+        <div className="grid grid-cols-2 gap-2 min-[430px]:gap-3">
+          <div className="rounded-2xl bg-teal-50 px-3 py-2.5 text-xs font-extrabold text-teal-700 min-[380px]:text-sm">
+            Revenue
           </div>
-        ) : (
-          <div className="grid gap-3">
-            {expenses.map((expense) => (
-              <div
-                className="flex flex-col gap-2 border-b border-slate-100 py-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between"
-                key={expense._id}
-              >
-                <div className="min-w-0">
-                  <strong className="block break-words">{expense.title}</strong>
-                  <p className="m-0 text-sm font-bold text-slate-500">
-                    {formatDate(expense.expenseDate)} | {expense.category}
-                  </p>
+          <div className="rounded-2xl bg-rose-50 px-3 py-2.5 text-xs font-extrabold text-rose-700 min-[380px]:text-sm">
+            Expenses
+          </div>
+        </div>
+
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max items-end gap-2">
+            {trendItems.map((item) => {
+              const revenueHeight = Math.max(10, Math.round(((item.revenue || 0) / trendMax) * 120));
+              const expenseHeight = Math.max(10, Math.round(((item.expenses || 0) / trendMax) * 120));
+
+              return (
+                <div className="grid w-12 shrink-0 justify-items-center gap-2 min-[380px]:w-14" key={item.month}>
+                  <div className="flex h-32 items-end gap-1.5 min-[380px]:h-36">
+                    <div
+                      className="w-4 rounded-t-xl bg-teal-600 min-[380px]:w-[1.1rem]"
+                      style={{ height: `${revenueHeight}px` }}
+                      title={`Revenue ${formatCurrency(item.revenue || 0)}`}
+                    />
+                    <div
+                      className="w-4 rounded-t-xl bg-rose-300 min-[380px]:w-[1.1rem]"
+                      style={{ height: `${expenseHeight}px` }}
+                      title={`Expenses ${formatCurrency(item.expenses || 0)}`}
+                    />
+                  </div>
+                  <div className="grid justify-items-center gap-1">
+                    <span className="text-[11px] font-extrabold text-slate-700 min-[380px]:text-xs">
+                      {monthOptions[(item.month || 1) - 1]?.label || item.month}
+                    </span>
+                  </div>
                 </div>
-                <strong className="text-lg font-black text-rose-600 min-[520px]:shrink-0">
-                  {formatCurrency(expense.amount)}
-                </strong>
-              </div>
-            ))}
-            {expenses.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">
-                No expenses found for the selected period.
+              );
+            })}
+            {trendItems.length === 0 ? (
+              <div className="grid min-h-28 w-full place-items-center rounded-3xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm font-bold text-slate-500">
+                No trend data available for this period.
               </div>
             ) : null}
           </div>
-        )}
+        </div>
       </section>
 
-      <section className="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Latest Payments</h3>
-          <Link className="text-sm font-extrabold text-teal-700" to="/payments">
-            Open
-          </Link>
-        </div>
-        <div className="grid gap-1">
-          {payments.map((payment) => (
-            <div
-              className="flex flex-col gap-3 border-b border-slate-100 py-4 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between"
-              key={payment._id}
+      <section className="grid gap-4 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
+        <div className="grid gap-3">
+          <div className="min-w-0">
+            <h2 className="m-0 text-xl font-black text-slate-950 min-[380px]:text-2xl">Monthly Breakdown</h2>
+            <p className="m-0 mt-1 text-sm font-bold text-slate-500">
+              {monthOptions.find((month) => month.value === filters.month)?.label} {filters.year}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-1">
+            <button
+              className={breakdownTab === "income" ? "min-h-11 rounded-2xl bg-white text-sm font-extrabold text-teal-700 shadow-sm" : "min-h-11 rounded-2xl text-sm font-extrabold text-slate-600"}
+              onClick={() => setBreakdownTab("income")}
+              type="button"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-50 font-black text-teal-700">
-                  {(payment.student?.name || "P").slice(0, 1).toUpperCase()}
-                </div>
+              Income
+            </button>
+            <button
+              className={breakdownTab === "expenses" ? "min-h-11 rounded-2xl bg-white text-sm font-extrabold text-rose-700 shadow-sm" : "min-h-11 rounded-2xl text-sm font-extrabold text-slate-600"}
+              onClick={() => setBreakdownTab("expenses")}
+              type="button"
+            >
+              Expenses
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {breakdownItems.map((item) => (
+            <article className="min-w-0 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/10 min-[380px]:p-4" key={item.label}>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold ${item.tone}`}>
+                {item.label}
+              </span>
+              <strong className="mt-3 block min-w-0 break-words text-[1.2rem] font-black leading-tight text-slate-950 min-[380px]:text-[1.35rem]">
+                {item.value}
+              </strong>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-4 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
+        <div className="grid gap-3">
+          <div className="min-w-0">
+            <h2 className="m-0 text-xl font-black text-slate-950 min-[380px]:text-2xl">Recent Activity</h2>
+            <p className="m-0 mt-1 text-sm font-bold text-slate-500">Latest items from the selected period</p>
+          </div>
+
+          <div className="grid grid-cols-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-1">
+            <button
+              className={activityTab === "payments" ? "min-h-11 rounded-2xl bg-white text-sm font-extrabold text-teal-700 shadow-sm" : "min-h-11 rounded-2xl text-sm font-extrabold text-slate-600"}
+              onClick={() => setActivityTab("payments")}
+              type="button"
+            >
+              Payments
+            </button>
+            <button
+              className={activityTab === "expenses" ? "min-h-11 rounded-2xl bg-white text-sm font-extrabold text-rose-700 shadow-sm" : "min-h-11 rounded-2xl text-sm font-extrabold text-slate-600"}
+              onClick={() => setActivityTab("expenses")}
+              type="button"
+            >
+              Expenses
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {activityItems.map((item) => (
+            <article className="grid gap-3 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/10 min-[380px]:p-4" key={item._id}>
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <strong className="block break-words text-lg font-black">
-                    {payment.student?.name || "Deleted student"}
+                  <strong className="block min-w-0 break-words text-sm font-black text-slate-950 min-[380px]:text-base">
+                    {activityTab === "payments" ? item.student?.name || "Deleted student" : item.title}
                   </strong>
-                  <p className="m-0 text-sm font-bold text-slate-500">
-                    {formatDate(payment.paymentDate)} | {payment.method}
+                  <p className="m-0 mt-1 text-xs font-bold text-slate-500 min-[380px]:text-sm">
+                    {activityTab === "payments"
+                      ? `${formatDate(item.paymentDate)} | ${item.method}`
+                      : `${formatDate(item.expenseDate)} | ${item.category}`}
                   </p>
                 </div>
+                <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${activityTab === "payments" ? "bg-teal-50 text-teal-700" : "bg-rose-50 text-rose-700"}`}>
+                  {formatCurrency(item.amount)}
+                </span>
               </div>
-              <strong className="break-words text-xl font-black text-teal-700 min-[520px]:shrink-0">
-                {formatCurrency(payment.amount)}
-              </strong>
-            </div>
+            </article>
           ))}
-          {payments.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">
-              No payments found for the selected period.
+
+          {activityItems.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm font-bold text-slate-500">
+              No {activityTab} found for this period.
             </div>
           ) : null}
         </div>
