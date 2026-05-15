@@ -585,7 +585,7 @@ export default function StudentsPage() {
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="m-0 text-2xl font-extrabold">Profiles</h3>
-          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={openStudentForm} type="button">
+          <button className="hidden min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:inline-flex sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={openStudentForm} type="button">
             New Member
           </button>
         </div>
@@ -761,6 +761,13 @@ export default function StudentsPage() {
       </section>
       )}
 
+      {directoryView === "active" && !showStudentForm && !viewingStudent ? (
+      <button className="fixed bottom-24 right-3 z-40 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-teal-700 px-4 text-sm font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 min-[380px]:right-4 min-[380px]:min-h-14 min-[380px]:px-5 min-[380px]:text-base sm:hidden" onClick={openStudentForm} type="button">
+        <span>+</span>
+        New Member
+      </button>
+      ) : null}
+
       {directoryView === "active" && showStudentForm ? (
       <>
       <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={closeStudentForm} type="button" aria-label="Close student form" />
@@ -860,7 +867,6 @@ export default function StudentsPage() {
     </div>
   );
 }
-
 
 
 

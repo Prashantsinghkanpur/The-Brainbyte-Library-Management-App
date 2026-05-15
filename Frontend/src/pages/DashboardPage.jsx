@@ -298,13 +298,13 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="grid min-w-0 max-w-full gap-5 overflow-hidden sm:gap-6">
-      <section className="flex items-start justify-between gap-3 pt-3 sm:pt-8 lg:pt-12">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-hidden sm:gap-6">
+      <section className="flex items-start justify-between gap-3 pt-1 sm:pt-8 lg:pt-12">
         <div className="min-w-0">
-          <h1 className="m-0 text-[2.75rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Admin</h1>
+          <h1 className="m-0 text-[2rem] font-black leading-none text-slate-950 min-[380px]:text-[2.8rem] sm:text-7xl">Admin</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button className="grid h-14 w-14 place-items-center overflow-hidden rounded-full border-4 border-yellow-300 bg-yellow-50 text-2xl font-extrabold text-yellow-600 shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:h-20 sm:w-20 sm:text-3xl" onClick={() => setActivePromo("owner")} type="button" aria-label="Show owner details">
+          <button className="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-4 border-yellow-300 bg-yellow-50 text-xl font-extrabold text-yellow-600 shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 min-[380px]:h-14 min-[380px]:w-14 min-[380px]:text-2xl sm:h-20 sm:w-20 sm:text-3xl" onClick={() => setActivePromo("owner")} type="button" aria-label="Show owner details">
             {libraryProfile?.logoDataUrl ? (
               <img className="h-full w-full object-contain" src={libraryProfile.logoDataUrl} alt={`${libraryName} logo`} />
             ) : (
@@ -314,11 +314,11 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-      {actionMessage ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{actionMessage}</div> : null}
+      {error ? <div className="rounded-[1.15rem] bg-red-50 px-4 py-3 text-sm font-bold text-red-700 min-[380px]:rounded-2xl sm:text-base">{error}</div> : null}
+      {actionMessage ? <div className="rounded-[1.15rem] bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 min-[380px]:rounded-2xl sm:text-base">{actionMessage}</div> : null}
 
-      <section className="flex items-center gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/30 sm:rounded-[1.75rem] sm:p-5">
-        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-yellow-300 bg-yellow-50 text-xl font-black text-yellow-600">
+      <section className="flex items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
+        <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[1rem] border-4 border-yellow-300 bg-yellow-50 text-base font-black text-yellow-600 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:rounded-3xl min-[380px]:text-xl">
           {libraryProfile?.logoDataUrl ? (
             <img className="h-full w-full object-contain" src={libraryProfile.logoDataUrl} alt={`${libraryName} logo`} />
           ) : (
@@ -327,21 +327,21 @@ export default function DashboardPage() {
         </div>
         <div className="min-w-0">
           <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Current Library</p>
-          <h2 className="m-0 mt-1 break-words text-2xl font-black text-slate-950 sm:text-3xl">{libraryName}</h2>
-          <p className="m-0 mt-2 break-words text-sm font-bold text-slate-500 sm:text-base">{libraryAddress}</p>
+          <h2 className="m-0 mt-1 break-words text-lg font-black text-slate-950 min-[380px]:text-2xl sm:text-3xl">{libraryName}</h2>
+          <p className="m-0 mt-1 break-words text-xs font-bold text-slate-500 min-[380px]:mt-2 min-[380px]:text-sm sm:text-base">{libraryAddress}</p>
         </div>
       </section>
 
-      <section className="flex w-fit rounded-[1.35rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
+      <section className="flex w-full rounded-[1.15rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30 min-[380px]:w-fit min-[380px]:rounded-[1.35rem]">
         <button
-          className={homeMode === "classic" ? "min-h-11 rounded-2xl bg-teal-700 px-5 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-2xl px-5 font-extrabold text-slate-600"}
+          className={homeMode === "classic" ? "min-h-11 flex-1 rounded-[0.9rem] bg-teal-700 px-4 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 min-[380px]:rounded-2xl min-[380px]:px-5" : "min-h-11 flex-1 rounded-[0.9rem] px-4 text-sm font-extrabold text-slate-600 min-[380px]:rounded-2xl min-[380px]:px-5"}
           onClick={() => setDashboardMode("classic")}
           type="button"
         >
           Classic
         </button>
         <button
-          className={homeMode === "modern" ? "min-h-11 rounded-2xl bg-teal-700 px-5 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-2xl px-5 font-extrabold text-slate-600"}
+          className={homeMode === "modern" ? "min-h-11 flex-1 rounded-[0.9rem] bg-teal-700 px-4 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 min-[380px]:rounded-2xl min-[380px]:px-5" : "min-h-11 flex-1 rounded-[0.9rem] px-4 text-sm font-extrabold text-slate-600 min-[380px]:rounded-2xl min-[380px]:px-5"}
           onClick={() => setDashboardMode("modern")}
           type="button"
         >
@@ -352,63 +352,63 @@ export default function DashboardPage() {
       {activePromo ? <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={() => setActivePromo("")} type="button" aria-label="Close popup" /> : null}
 
       <section>
-        <h3 className="mb-4 mt-0 text-2xl font-extrabold">Overview</h3>
+        <h3 className="mb-3 mt-0 text-xl font-extrabold min-[380px]:mb-4 min-[380px]:text-2xl">Overview</h3>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {overviewCards.map((card) => (
-            <article className={`grid min-h-32 min-w-0 content-between overflow-hidden rounded-[1.5rem] bg-gradient-to-br p-4 text-white shadow-xl shadow-slate-300/40 sm:min-h-44 sm:rounded-[1.75rem] sm:p-6 ${toneClasses[card.tone]}`} key={card.title}>
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/20 text-base font-black sm:h-14 sm:w-14 sm:text-lg">{card.title.slice(0, 1)}</div>
-              <strong className="block min-w-0 break-words text-2xl font-black leading-none sm:text-4xl">{card.value}</strong>
+            <article className={`grid min-h-28 min-w-0 content-between overflow-hidden rounded-[1.2rem] bg-gradient-to-br p-3 text-white shadow-xl shadow-slate-300/40 min-[380px]:min-h-32 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:min-h-44 sm:rounded-[1.75rem] sm:p-6 ${toneClasses[card.tone]}`} key={card.title}>
+              <div className="grid h-9 w-9 place-items-center rounded-[0.9rem] bg-white/20 text-sm font-black min-[380px]:h-11 min-[380px]:w-11 min-[380px]:rounded-2xl min-[380px]:text-base sm:h-14 sm:w-14 sm:text-lg">{card.title.slice(0, 1)}</div>
+              <strong className="block min-w-0 break-words text-xl font-black leading-none min-[380px]:text-2xl sm:text-4xl">{card.value}</strong>
               <p className="m-0 min-w-0 break-words text-xs font-bold leading-tight min-[380px]:text-sm sm:text-base">{card.title}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-teal-600 to-sky-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => navigate("/students?new=1")} type="button">
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.2rem] bg-gradient-to-br from-teal-600 to-sky-600 p-3.5 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => navigate("/students?new=1")} type="button">
 
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 text-2xl font-black sm:h-14 sm:w-14" aria-hidden="true">+</div>
         <div className="min-w-0">
-          <strong className="block break-words text-xl leading-tight sm:text-2xl">New Member</strong>
+          <strong className="block break-words text-lg leading-tight min-[380px]:text-xl sm:text-2xl">New Member</strong>
           <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Add admission details in a popup.</p>
         </div>
         <span className="ml-auto hidden shrink-0 text-3xl min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
-      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-indigo-500 to-violet-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("refer")} type="button">
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.2rem] bg-gradient-to-br from-indigo-500 to-violet-600 p-3.5 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("refer")} type="button">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 font-black sm:h-14 sm:w-14" aria-hidden="true">R</div>
         <div className="min-w-0">
-          <strong className="block break-words text-xl leading-tight sm:text-2xl">Refer & Earn INR 149</strong>
+          <strong className="block break-words text-lg leading-tight min-[380px]:text-xl sm:text-2xl">Refer & Earn INR 149</strong>
           <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Boost new admissions through word of mouth.</p>
         </div>
         <span className="ml-auto hidden shrink-0 text-3xl min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
-      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-emerald-500 to-teal-600 p-4 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("community")} type="button">
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.2rem] bg-gradient-to-br from-emerald-500 to-teal-600 p-3.5 text-left text-white shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("community")} type="button">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 font-black sm:h-14 sm:w-14" aria-hidden="true">C</div>
         <div className="min-w-0">
-          <strong className="block break-words text-xl leading-tight sm:text-2xl">Join Community</strong>
+          <strong className="block break-words text-lg leading-tight min-[380px]:text-xl sm:text-2xl">Join Community</strong>
           <p className="m-0 mt-1 break-words text-sm text-white/85 sm:text-base">Get latest updates and library news.</p>
         </div>
         <span className="ml-auto hidden shrink-0 text-3xl min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
-      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("library")} type="button">
+      <button className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white p-3.5 text-left shadow-xl shadow-slate-300/40 transition hover:-translate-y-0.5 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4 sm:rounded-[1.75rem] sm:p-5" onClick={() => setActivePromo("library")} type="button">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-teal-50 font-black text-teal-700 sm:h-14 sm:w-14" aria-hidden="true">L</div>
         <div className="min-w-0">
-          <strong className="block break-words text-xl leading-tight text-slate-950 sm:text-2xl">Add Library</strong>
+          <strong className="block break-words text-lg leading-tight text-slate-950 min-[380px]:text-xl sm:text-2xl">Add Library</strong>
           <p className="m-0 mt-1 break-words text-sm text-slate-500 sm:text-base">Create another library with seat-based payment.</p>
         </div>
         <span className="ml-auto hidden shrink-0 text-3xl text-slate-400 min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
       {activePromo ? (
-        <section className="fixed left-1/2 top-24 z-50 grid max-h-[80vh] w-[min(92vw,560px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/30 sm:rounded-[1.75rem] sm:p-5">
-          <div className="flex items-start justify-between gap-4">
+        <section className="fixed left-1/2 top-3 z-50 grid max-h-[88vh] w-[min(96vw,560px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.25rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(94vw,560px)] min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:top-6 sm:rounded-[1.75rem] sm:p-5">
+          <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
             <div className="min-w-0">
               <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">{popupEyebrow}</p>
-              <h3 className="m-0 break-words text-2xl font-extrabold">{popupTitle}</h3>
+              <h3 className="m-0 break-words text-xl font-extrabold min-[380px]:text-2xl">{popupTitle}</h3>
             </div>
-            <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800" onClick={() => setActivePromo("")} type="button">
+            <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={() => setActivePromo("")} type="button">
               Close
             </button>
           </div>
@@ -667,7 +667,7 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <button className="fixed bottom-24 right-4 z-40 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-teal-700 px-5 text-base font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 lg:bottom-6" onClick={() => navigate("/students?new=1")} type="button">
+      <button className="fixed bottom-24 right-3 z-40 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-teal-700 px-4 text-sm font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 min-[380px]:right-4 min-[380px]:min-h-14 min-[380px]:px-5 min-[380px]:text-base lg:bottom-6" onClick={() => navigate("/students?new=1")} type="button">
 
         <span>+</span>
         New Member
@@ -675,11 +675,11 @@ export default function DashboardPage() {
 
       {homeMode === "classic" ? (
         <>
-          <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-blue-400/30 bg-gradient-to-br from-zinc-950 via-slate-900 to-blue-950 p-6 text-white shadow-2xl shadow-blue-950/30 min-[640px]:grid-cols-[minmax(0,1fr)_auto] min-[640px]:items-center">
+          <section className="grid gap-4 overflow-hidden rounded-[1.35rem] border border-blue-400/30 bg-gradient-to-br from-zinc-950 via-slate-900 to-blue-950 p-4 text-white shadow-2xl shadow-blue-950/30 min-[380px]:rounded-[1.6rem] min-[380px]:p-5 min-[640px]:grid-cols-[minmax(0,1fr)_auto] min-[640px]:items-center sm:gap-5 sm:rounded-[2rem] sm:p-6">
             <div className="min-w-0">
               <span className="inline-flex rounded-full bg-blue-400/15 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-100">Classic Suite</span>
-              <h2 className="m-0 mt-5 text-4xl font-black leading-none">Owner Console</h2>
-              <p className="m-0 mt-3 break-words text-lg font-bold text-blue-100/80">
+              <h2 className="m-0 mt-4 text-2xl font-black leading-none min-[380px]:text-3xl sm:mt-5 sm:text-4xl">Owner Console</h2>
+              <p className="m-0 mt-2 break-words text-sm font-bold text-blue-100/80 min-[380px]:mt-3 min-[380px]:text-base sm:text-lg">
                 {analytics?.activeStudents ?? 0} active | {formatCurrency(analytics?.todayRevenue)} earned today
               </p>
             </div>
@@ -689,21 +689,21 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4">
-            <h3 className="m-0 text-2xl font-black">Library Overview</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-emerald-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-emerald-950/20" onClick={() => navigate("/students")} type="button">
+            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Library Overview</h3>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <button className="flex min-h-24 items-center gap-3 rounded-[1.2rem] border border-emerald-400/25 bg-zinc-950 p-3.5 text-left text-white shadow-lg shadow-emerald-950/20 min-[380px]:min-h-28 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-5" onClick={() => navigate("/students")} type="button">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-400/15 font-black text-emerald-200">A</span>
                 <span><strong className="block text-2xl font-black">{analytics?.activeStudents ?? 0}</strong><span className="font-extrabold text-slate-500">ACTIVE</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-blue-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-blue-950/20" onClick={() => navigate("/payments")} type="button">
+              <button className="flex min-h-24 items-center gap-3 rounded-[1.2rem] border border-blue-400/25 bg-zinc-950 p-3.5 text-left text-white shadow-lg shadow-blue-950/20 min-[380px]:min-h-28 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-5" onClick={() => navigate("/payments")} type="button">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-200">T</span>
                 <span><strong className="block text-2xl font-black">{formatCurrency(analytics?.todayRevenue)}</strong><span className="font-extrabold text-slate-500">TODAY</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-fuchsia-400/25 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-fuchsia-950/20" onClick={() => navigate("/analytics")} type="button">
+              <button className="flex min-h-24 items-center gap-3 rounded-[1.2rem] border border-fuchsia-400/25 bg-zinc-950 p-3.5 text-left text-white shadow-lg shadow-fuchsia-950/20 min-[380px]:min-h-28 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-5" onClick={() => navigate("/analytics")} type="button">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-fuchsia-400/15 font-black text-fuchsia-200">M</span>
                 <span><strong className="block text-2xl font-black">{formatCurrency(analytics?.monthlyRevenue)}</strong><span className="font-extrabold text-slate-500">MONTHLY</span></span>
               </button>
-              <button className="flex min-h-28 items-center gap-4 rounded-[1.5rem] border border-amber-300/30 bg-zinc-950 p-5 text-left text-white shadow-lg shadow-amber-950/20" onClick={() => navigate("/students")} type="button">
+              <button className="flex min-h-24 items-center gap-3 rounded-[1.2rem] border border-amber-300/30 bg-zinc-950 p-3.5 text-left text-white shadow-lg shadow-amber-950/20 min-[380px]:min-h-28 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-5" onClick={() => navigate("/students")} type="button">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 font-black text-amber-200">S</span>
                 <span><strong className="block text-2xl font-black">{analytics?.totalStudents ?? 0}</strong><span className="font-extrabold text-slate-500">TOTAL</span></span>
               </button>
@@ -711,19 +711,19 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4">
-            <h3 className="m-0 text-2xl font-black">Quick Actions</h3>
+            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Quick Actions</h3>
             <div className="grid gap-4 min-[680px]:grid-cols-3">
-              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-blue-400/20 bg-gradient-to-br from-zinc-950 to-blue-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => setActivePromo("member")} type="button">
+              <button className="grid min-h-28 content-between rounded-[1.25rem] border border-blue-400/20 bg-gradient-to-br from-zinc-950 to-blue-950 p-4 text-left text-white shadow-xl shadow-blue-950/25 min-[380px]:min-h-36 min-[380px]:rounded-[1.75rem] min-[380px]:p-5" onClick={() => setActivePromo("member")} type="button">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-100">+</span>
                 <strong className="text-2xl font-black">Add Student</strong>
                 <span className="font-bold text-white/85">New admission</span>
               </button>
-              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-amber-300/20 bg-gradient-to-br from-zinc-950 to-amber-950 p-5 text-left text-white shadow-xl shadow-amber-950/25" onClick={() => navigate("/expenses")} type="button">
+              <button className="grid min-h-28 content-between rounded-[1.25rem] border border-amber-300/20 bg-gradient-to-br from-zinc-950 to-amber-950 p-4 text-left text-white shadow-xl shadow-amber-950/25 min-[380px]:min-h-36 min-[380px]:rounded-[1.75rem] min-[380px]:p-5" onClick={() => navigate("/expenses")} type="button">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-300/15 font-black text-amber-100">E</span>
                 <strong className="text-2xl font-black">Log Expense</strong>
                 <span className="font-bold text-white/85">Track costs</span>
               </button>
-              <button className="grid min-h-36 content-between rounded-[1.75rem] border border-fuchsia-400/20 bg-gradient-to-br from-zinc-950 to-fuchsia-950 p-5 text-left text-white shadow-xl shadow-fuchsia-950/25" onClick={() => navigate("/analytics")} type="button">
+              <button className="grid min-h-28 content-between rounded-[1.25rem] border border-fuchsia-400/20 bg-gradient-to-br from-zinc-950 to-fuchsia-950 p-4 text-left text-white shadow-xl shadow-fuchsia-950/25 min-[380px]:min-h-36 min-[380px]:rounded-[1.75rem] min-[380px]:p-5" onClick={() => navigate("/analytics")} type="button">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-fuchsia-400/15 font-black text-fuchsia-100">R</span>
                 <strong className="text-2xl font-black">View Reports</strong>
                 <span className="font-bold text-white/85">Deep insights</span>
@@ -732,13 +732,13 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4">
-            <h3 className="m-0 text-2xl font-black">Recommended</h3>
-            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-blue-400/25 bg-zinc-950 p-5 text-left text-white shadow-xl shadow-blue-950/25" onClick={() => openInfoPopup("refer")} type="button">
+            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Recommended</h3>
+            <button className="flex min-h-20 items-center gap-3 rounded-[1.25rem] border border-blue-400/25 bg-zinc-950 p-4 text-left text-white shadow-xl shadow-blue-950/25 min-[380px]:min-h-24 min-[380px]:gap-4 min-[380px]:rounded-[1.75rem] min-[380px]:p-5" onClick={() => openInfoPopup("refer")} type="button">
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 font-black text-blue-100">R</span>
               <span className="min-w-0 flex-1"><strong className="block text-2xl font-black">Refer & Earn INR 149</strong><span className="font-bold text-blue-100/70">Get bonus on every successful referral</span></span>
               <span className="text-3xl">&gt;</span>
             </button>
-            <button className="flex min-h-24 items-center gap-4 rounded-[1.75rem] border border-rose-400/25 bg-rose-950 p-5 text-left text-white shadow-lg shadow-rose-950/25" onClick={() => navigate("/payments")} type="button">
+            <button className="flex min-h-20 items-center gap-3 rounded-[1.25rem] border border-rose-400/25 bg-rose-950 p-4 text-left text-white shadow-lg shadow-rose-950/25 min-[380px]:min-h-24 min-[380px]:gap-4 min-[380px]:rounded-[1.75rem] min-[380px]:p-5" onClick={() => navigate("/payments")} type="button">
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 font-black text-rose-100">!</span>
               <span className="min-w-0 flex-1"><strong className="block text-xl font-black">Pending Dues</strong><span className="font-bold text-rose-100/70">{formatCurrency(analytics?.totalDues)} from {analytics?.pendingStudents ?? 0} students</span></span>
               <span className="rounded-full bg-white px-5 py-3 font-extrabold text-rose-800">Collect</span>
@@ -746,11 +746,11 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4">
-            <h3 className="m-0 text-2xl font-black">Manage</h3>
-            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
+            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Manage</h3>
+            <div className="grid grid-cols-3 overflow-hidden rounded-[1.25rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25 min-[380px]:rounded-[1.75rem]">
               {classicManageItems.map(([label, onClick, icon]) => (
-                <button key={label} className="grid min-h-36 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={onClick} type="button">
-                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-400/15 text-blue-100">{icon}</span>
+                <button key={label} className="grid min-h-24 place-items-center gap-1.5 border-b border-r border-zinc-800 p-2.5 text-xs font-black transition hover:bg-zinc-900 min-[380px]:min-h-36 min-[380px]:gap-2 min-[380px]:p-4 min-[380px]:text-base" onClick={onClick} type="button">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-400/15 text-blue-100 min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-2xl">{icon}</span>
                   {label}
                 </button>
               ))}
@@ -758,20 +758,20 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4">
-            <h3 className="m-0 text-2xl font-black">Tools & More</h3>
-            <div className="grid grid-cols-3 overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25">
+            <h3 className="m-0 text-xl font-black min-[380px]:text-2xl">Tools & More</h3>
+            <div className="grid grid-cols-3 overflow-hidden rounded-[1.25rem] border border-zinc-800 bg-zinc-950 text-white shadow-xl shadow-zinc-950/25 min-[380px]:rounded-[1.75rem]">
               {classicToolsItems.map(([label, onClick, icon]) => (
-                <button key={label} className="grid min-h-32 place-items-center gap-2 border-b border-r border-zinc-800 p-4 font-black transition hover:bg-zinc-900" onClick={onClick} type="button">
-                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-300/15 text-amber-100">{icon}</span>
+                <button key={label} className="grid min-h-24 place-items-center gap-1.5 border-b border-r border-zinc-800 p-2.5 text-xs font-black transition hover:bg-zinc-900 min-[380px]:min-h-32 min-[380px]:gap-2 min-[380px]:p-4 min-[380px]:text-base" onClick={onClick} type="button">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-300/15 text-amber-100 min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-2xl">{icon}</span>
                   {label}
                 </button>
               ))}
             </div>
           </section>
 
-          <button className="grid gap-3 rounded-[1.75rem] border border-amber-300/25 bg-amber-950 p-6 text-center text-white shadow-lg shadow-amber-950/25" onClick={() => openInfoPopup("rate")} type="button">
-            <strong className="text-3xl text-amber-200">5 Stars</strong>
-            <span className="text-xl font-black">Enjoying the App?</span>
+          <button className="grid gap-2 rounded-[1.25rem] border border-amber-300/25 bg-amber-950 p-4 text-center text-white shadow-lg shadow-amber-950/25 min-[380px]:gap-3 min-[380px]:rounded-[1.75rem] min-[380px]:p-6" onClick={() => openInfoPopup("rate")} type="button">
+            <strong className="text-2xl text-amber-200 min-[380px]:text-3xl">5 Stars</strong>
+            <span className="text-lg font-black min-[380px]:text-xl">Enjoying the App?</span>
             <span className="font-bold text-amber-100/70">Your rating helps us grow.</span>
           </button>
 
@@ -779,23 +779,23 @@ export default function DashboardPage() {
         </>
       ) : (
       <>
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
+      <section className="rounded-[1.25rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/40 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
         <div className="mb-4 grid gap-3 min-[380px]:flex min-[380px]:items-center min-[380px]:justify-between">
-          <h3 className="m-0 min-w-0 text-2xl font-extrabold">Recent Students</h3>
-          <Link className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold" to="/students">View All</Link>
+          <h3 className="m-0 min-w-0 text-xl font-extrabold min-[380px]:text-2xl">Recent Students</h3>
+          <Link className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold" to="/students">View All</Link>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {students.map((student) => (
-            <article className="flex gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/20 sm:gap-4" key={student._id}>
-              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-600 text-lg font-extrabold text-white sm:h-16 sm:w-16 sm:text-xl">{student.name.slice(0, 2).toUpperCase()}</div>
+            <article className="flex gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4" key={student._id}>
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[0.9rem] bg-sky-600 text-base font-extrabold text-white min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-2xl min-[380px]:text-lg sm:h-16 sm:w-16 sm:text-xl">{student.name.slice(0, 2).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <strong className="block break-words leading-tight">{student.name}</strong>
                     <p className="m-0 text-sm text-slate-500">ID: {student.memberId}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700">{student.status}</span>
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700 min-[380px]:px-3 min-[380px]:text-xs">{student.status}</span>
                 </div>
                 <div className="mt-3 grid gap-3 min-[520px]:grid-cols-2">
                   <div className="min-w-0">
@@ -813,21 +813,21 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
+      <section className="rounded-[1.25rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/40 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
         <div className="mb-4 grid gap-3 min-[380px]:flex min-[380px]:items-center min-[380px]:justify-between">
-          <h3 className="m-0 min-w-0 text-2xl font-extrabold">Latest Payments</h3>
-          <Link className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold" to="/payments">History</Link>
+          <h3 className="m-0 min-w-0 text-xl font-extrabold min-[380px]:text-2xl">Latest Payments</h3>
+          <Link className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold" to="/payments">History</Link>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {payments.map((payment) => (
-            <article className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/20" key={payment._id}>
+            <article className="grid gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4" key={payment._id}>
               <div className="flex items-start justify-between gap-3">
                 <strong className="min-w-0 break-words leading-tight">{payment.student?.name || "Deleted student"}</strong>
-                <div className="shrink-0 rounded-2xl bg-teal-50 px-4 py-2 font-extrabold text-teal-700">{payment.method}</div>
+                <div className="shrink-0 rounded-2xl bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-700 min-[380px]:px-4 min-[380px]:py-2 min-[380px]:text-sm">{payment.method}</div>
               </div>
-              <div className="break-words text-3xl font-black text-teal-700 sm:text-4xl">{formatCurrency(payment.amount)}</div>
-              <div className="break-words rounded-2xl bg-slate-100 px-4 py-3 text-slate-700">
+              <div className="break-words text-2xl font-black text-teal-700 min-[380px]:text-3xl sm:text-4xl">{formatCurrency(payment.amount)}</div>
+              <div className="break-words rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700 sm:text-base">
                 {formatDate(payment.membershipStartDate)} - {formatDate(payment.paidTill)}
               </div>
               <p className="m-0 break-words font-bold text-teal-700">Paid on {formatDate(payment.paymentDate)}</p>
@@ -840,6 +840,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-
 
 

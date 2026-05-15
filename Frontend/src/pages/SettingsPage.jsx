@@ -287,7 +287,7 @@ function SettingsIcon({ name }) {
 }
 
 function SectionLabel({ children }) {
-  return <h2 className="m-0 px-1 text-sm font-black uppercase tracking-[0.28em] text-slate-700">{children}</h2>;
+  return <h2 className="m-0 px-1 text-xs font-black uppercase tracking-[0.22em] text-slate-700 min-[380px]:text-sm min-[380px]:tracking-[0.28em]">{children}</h2>;
 }
 
 function IconBadge({ icon, tone = "teal" }) {
@@ -301,14 +301,14 @@ function IconBadge({ icon, tone = "teal" }) {
   };
 
   return (
-    <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-[1.35rem] ${tones[tone] || tones.teal}`}>
+    <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[1rem] min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-[1.15rem] sm:h-16 sm:w-16 sm:rounded-[1.35rem] ${tones[tone] || tones.teal}`}>
       <SettingsIcon name={icon} />
     </span>
   );
 }
 
 function SettingsGroup({ children }) {
-  return <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-300/15">{children}</div>;
+  return <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-xl shadow-slate-300/15 min-[380px]:rounded-[1.6rem] sm:rounded-[2rem]">{children}</div>;
 }
 
 function SettingsRow({
@@ -324,17 +324,17 @@ function SettingsRow({
 }) {
   return (
     <button
-      className={`flex w-full items-center gap-4 px-5 py-5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${isLast ? "" : "border-b border-slate-100"}`}
+      className={`flex w-full items-center gap-3 px-3.5 py-3.5 text-left transition hover:bg-slate-50 min-[380px]:gap-4 min-[380px]:px-4 min-[380px]:py-4 sm:px-5 sm:py-5 dark:hover:bg-slate-800 ${isLast ? "" : "border-b border-slate-100"}`}
       onClick={onClick}
       type="button"
     >
       <IconBadge icon={icon} tone={tone} />
       <div className="min-w-0 flex-1">
-        <strong className={`block break-words text-[1.05rem] font-extrabold ${danger ? "text-red-500" : "text-slate-950"}`}>{title}</strong>
-        {description ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{description}</p> : null}
+        <strong className={`block break-words text-[0.95rem] font-extrabold leading-tight min-[380px]:text-base sm:text-[1.05rem] ${danger ? "text-red-500" : "text-slate-950"}`}>{title}</strong>
+        {description ? <p className="m-0 mt-1 break-words text-xs text-slate-500 min-[380px]:text-sm">{description}</p> : null}
       </div>
       <div className="shrink-0 text-slate-300">
-        {value ? <span className="mr-2 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">{value}</span> : null}
+        {value ? <span className="mr-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 min-[380px]:mr-2 min-[380px]:text-xs min-[380px]:tracking-[0.14em]">{value}</span> : null}
         {hideChevron ? null : <SettingsIcon name="chevron" />}
       </div>
     </button>
@@ -345,13 +345,13 @@ function ModalFrame({ title, subtitle, onClose, children }) {
   return (
     <>
       <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={onClose} type="button" aria-label="Close settings popup" />
-      <section className="fixed left-1/2 top-5 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
-        <div className="flex items-start justify-between gap-4">
+      <section className="fixed left-1/2 top-3 z-50 grid max-h-[90vh] w-[min(96vw,760px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(95vw,760px)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:top-5 sm:rounded-[2rem] sm:p-5">
+        <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
           <div className="min-w-0">
-            <h3 className="m-0 break-words text-2xl font-extrabold text-slate-950">{title}</h3>
+            <h3 className="m-0 break-words text-xl font-extrabold text-slate-950 min-[380px]:text-2xl">{title}</h3>
             {subtitle ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
           </div>
-          <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800" onClick={onClose} type="button">
+          <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={onClose} type="button">
             Close
           </button>
         </div>
@@ -859,29 +859,29 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="grid gap-6 pb-6">
-      <section className="pt-2">
-        <h1 className="m-0 text-[2.55rem] font-black leading-[0.95] text-slate-950 min-[380px]:text-5xl">Settings</h1>
-        <p className="m-0 mt-3 text-sm font-semibold text-slate-500 sm:text-base">Manage your account and preferences</p>
+    <div className="grid gap-4 pb-6 sm:gap-6">
+      <section className="pt-1 sm:pt-2">
+        <h1 className="m-0 text-[2rem] font-black leading-[0.95] text-slate-950 min-[380px]:text-[2.8rem] sm:text-5xl">Settings</h1>
+        <p className="m-0 mt-2 text-sm font-semibold text-slate-500 sm:mt-3 sm:text-base">Manage your account and preferences</p>
       </section>
 
       {error ? (
-        <div className="rounded-[1.4rem] border border-red-100 bg-red-50 px-5 py-4 text-lg font-extrabold text-red-700 shadow-lg shadow-red-600/10">
+        <div className="rounded-[1.15rem] border border-red-100 bg-red-50 px-4 py-3 text-sm font-extrabold text-red-700 shadow-lg shadow-red-600/10 min-[380px]:rounded-[1.4rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base sm:text-lg">
           {error}
         </div>
       ) : null}
       {success ? (
-        <div className="rounded-[1.4rem] border border-emerald-100 bg-emerald-50 px-5 py-4 text-lg font-extrabold text-emerald-700 shadow-lg shadow-emerald-600/10">
+        <div className="rounded-[1.15rem] border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-extrabold text-emerald-700 shadow-lg shadow-emerald-600/10 min-[380px]:rounded-[1.4rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base sm:text-lg">
           {success}
         </div>
       ) : null}
 
-        <button
-        className="flex items-center gap-4 rounded-[2rem] border border-slate-200 bg-white px-5 py-6 text-left shadow-xl shadow-slate-300/15 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+      <button
+        className="flex items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white px-3.5 py-4 text-left shadow-xl shadow-slate-300/15 transition hover:-translate-y-0.5 hover:bg-slate-50 min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:px-4 min-[380px]:py-5 sm:rounded-[2rem] sm:px-5 sm:py-6 dark:hover:bg-slate-800"
         onClick={() => setActiveModal("profile")}
         type="button"
       >
-        <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[1.65rem] border-2 border-yellow-300 bg-white text-2xl font-black text-yellow-600">
+        <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-[1rem] border-2 border-yellow-300 bg-white text-lg font-black text-yellow-600 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:rounded-[1.2rem] min-[380px]:text-xl sm:h-20 sm:w-20 sm:rounded-[1.65rem] sm:text-2xl">
           {profile.logoDataUrl ? (
             <img className="h-full w-full object-contain" src={profile.logoDataUrl} alt={`${profile.libraryName || "Library"} logo`} />
           ) : (
@@ -889,9 +889,9 @@ export default function SettingsPage() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <strong className="block break-words text-[2rem] font-black leading-none text-slate-950">{profile.name || "Admin"}</strong>
-          <p className="m-0 mt-2 break-all text-base font-semibold text-slate-600">{profile.email || "No email"}</p>
-          <span className={isProActive ? "mt-3 inline-flex rounded-full bg-yellow-50 px-3 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-yellow-600" : "mt-3 inline-flex rounded-full bg-slate-100 px-3 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-slate-600"}>
+          <strong className="block break-words text-[1.15rem] font-black leading-tight text-slate-950 min-[380px]:text-[1.4rem] sm:text-[2rem] sm:leading-none">{profile.name || "Admin"}</strong>
+          <p className="m-0 mt-1 break-all text-xs font-semibold text-slate-600 min-[380px]:mt-2 min-[380px]:text-sm sm:text-base">{profile.email || "No email"}</p>
+          <span className={isProActive ? "mt-2 inline-flex rounded-full bg-yellow-50 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-yellow-600 min-[380px]:mt-3 min-[380px]:px-3 min-[380px]:py-2 min-[380px]:text-xs min-[380px]:tracking-[0.16em]" : "mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600 min-[380px]:mt-3 min-[380px]:px-3 min-[380px]:py-2 min-[380px]:text-xs min-[380px]:tracking-[0.16em]"}>
             {isProActive ? "Pro Member" : `${subscriptionStatus} Member`}
           </span>
         </div>
@@ -904,18 +904,18 @@ export default function SettingsPage() {
         <SectionLabel>Subscription</SectionLabel>
 
         <button
-          className="flex items-center gap-4 rounded-[2rem] bg-gradient-to-r from-teal-700 to-sky-600 px-5 py-6 text-left text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5"
+          className="flex items-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-teal-700 to-sky-600 px-3.5 py-4 text-left text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5 min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:px-4 min-[380px]:py-5 sm:rounded-[2rem] sm:px-5 sm:py-6"
           onClick={() => setActiveModal("subscription")}
           type="button"
         >
-          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-[1.35rem] bg-white/16">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1rem] bg-white/16 min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-[1.15rem] sm:h-16 sm:w-16 sm:rounded-[1.35rem]">
             <SettingsIcon name="sparkle" />
           </span>
           <div className="min-w-0 flex-1">
-            <strong className="block break-words text-[1.95rem] font-black leading-none">You are {subscriptionPlan}</strong>
-            <p className="m-0 mt-2 break-words text-lg font-semibold text-white/90">{summarySubtitle}</p>
+            <strong className="block break-words text-[1.2rem] font-black leading-tight min-[380px]:text-[1.45rem] sm:text-[1.95rem] sm:leading-none">You are {subscriptionPlan}</strong>
+            <p className="m-0 mt-1 break-words text-sm font-semibold text-white/90 min-[380px]:mt-2 min-[380px]:text-base sm:text-lg">{summarySubtitle}</p>
           </div>
-          <span className="inline-flex min-h-12 items-center justify-center rounded-full bg-white/18 px-5 text-sm font-extrabold uppercase tracking-[0.14em]">
+          <span className="inline-flex min-h-10 items-center justify-center rounded-full bg-white/18 px-3 text-[10px] font-extrabold uppercase tracking-[0.1em] min-[380px]:min-h-12 min-[380px]:px-4 min-[380px]:text-xs min-[380px]:tracking-[0.14em] sm:px-5 sm:text-sm">
             View
           </span>
         </button>
@@ -1092,12 +1092,12 @@ export default function SettingsPage() {
 
       <div className="grid gap-4">
         <SectionLabel>Data & Security</SectionLabel>
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/15">
-          <p className="m-0 text-lg font-semibold leading-9 text-slate-700">
+        <div className="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/15 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:rounded-[2rem] sm:p-5">
+          <p className="m-0 text-sm font-semibold leading-7 text-slate-700 min-[380px]:text-base min-[380px]:leading-8 sm:text-lg sm:leading-9">
             Deleting your account will permanently remove all your library data, student records, and subscription history. This action cannot be undone.
           </p>
           <button
-            className="mt-6 inline-flex min-h-14 w-full items-center justify-center rounded-[1.4rem] border border-red-100 bg-red-50 px-5 text-xl font-black text-red-500 transition hover:-translate-y-0.5"
+            className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-[1rem] border border-red-100 bg-red-50 px-4 text-sm font-black text-red-500 transition hover:-translate-y-0.5 min-[380px]:mt-5 min-[380px]:rounded-[1.2rem] min-[380px]:px-5 min-[380px]:text-base sm:mt-6 sm:min-h-14 sm:rounded-[1.4rem] sm:text-xl"
             onClick={() => setActiveModal("delete")}
             type="button"
           >
@@ -1106,29 +1106,29 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <footer className="pb-6 pt-3 text-center">
-        <p className="m-0 text-xl font-black text-slate-500">{APP_VERSION_LABEL}</p>
+      <footer className="pb-6 pt-2 text-center sm:pt-3">
+        <p className="m-0 text-base font-black text-slate-500 min-[380px]:text-lg sm:text-xl">{APP_VERSION_LABEL}</p>
         <p className="m-0 mt-2 text-sm font-black text-slate-400">{APP_MADE_BY_LABEL}</p>
       </footer>
 
       {activeModal === "profile" ? (
         <ModalFrame title="Edit Profile" subtitle="Update owner, library, and contact details." onClose={() => setActiveModal("")}>
           <form className="grid gap-4" onSubmit={handleProfileSubmit}>
-            <div className="flex flex-wrap items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
-              <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[1.35rem] border-2 border-yellow-300 bg-white text-2xl font-black text-yellow-600">
+            <div className="flex flex-col gap-3 rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3 min-[380px]:rounded-[1.4rem] min-[380px]:p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 sm:rounded-[1.75rem]">
+              <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[1rem] border-2 border-yellow-300 bg-white text-xl font-black text-yellow-600 min-[380px]:h-20 min-[380px]:w-20 min-[380px]:rounded-[1.35rem] min-[380px]:text-2xl">
                 {profile.logoDataUrl ? (
                   <img className="h-full w-full object-contain" src={profile.logoDataUrl} alt={`${profile.libraryName || "Library"} logo preview`} />
                 ) : (
                   getLibraryInitials(profile)
                 )}
               </div>
-              <div className="flex flex-wrap gap-3">
-                <label className={savingLogo ? "inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white opacity-70 shadow-lg shadow-teal-700/20" : "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5"}>
+              <div className="flex flex-col gap-2 min-[380px]:flex-row min-[380px]:flex-wrap min-[380px]:gap-3">
+                <label className={savingLogo ? "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white opacity-70 shadow-lg shadow-teal-700/20 min-[380px]:w-auto" : "inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 min-[380px]:w-auto"}>
                   {savingLogo ? "Saving..." : "Upload Logo"}
                   <input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={savingLogo} onChange={handleLogoChange} />
                 </label>
                 {profile.logoDataUrl ? (
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={savingLogo} onClick={handleLogoRemove}>
+                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 min-[380px]:w-auto" type="button" disabled={savingLogo} onClick={handleLogoRemove}>
                     Remove
                   </button>
                 ) : null}
@@ -1162,7 +1162,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={submitting} type="submit">
+            <button className="min-h-12 w-full rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={submitting} type="submit">
               {submitting ? "Saving..." : "Update Profile"}
             </button>
           </form>
@@ -1233,9 +1233,9 @@ export default function SettingsPage() {
       {activeModal === "subscription" ? (
         <ModalFrame title="Manage Subscription" subtitle="View plan, renew dates, and subscription controls." onClose={() => setActiveModal("")}>
           <div className="grid gap-4">
-            <div className="rounded-[2rem] bg-gradient-to-r from-teal-700 to-sky-600 p-5 text-white shadow-xl shadow-teal-700/20">
-              <strong className="block break-words text-3xl font-black">You are {subscriptionPlan}</strong>
-              <p className="m-0 mt-2 break-words text-lg font-semibold text-white/90">{summarySubtitle}</p>
+            <div className="rounded-[1.35rem] bg-gradient-to-r from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 min-[380px]:rounded-[1.6rem] min-[380px]:p-5 sm:rounded-[2rem]">
+              <strong className="block break-words text-2xl font-black min-[380px]:text-3xl">You are {subscriptionPlan}</strong>
+              <p className="m-0 mt-2 break-words text-base font-semibold text-white/90 min-[380px]:text-lg">{summarySubtitle}</p>
               <p className="m-0 mt-2 text-sm font-semibold text-white/80">Renewal date: {formatDate(renewsAt)}</p>
             </div>
 
@@ -1263,11 +1263,11 @@ export default function SettingsPage() {
               })}
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <button className="inline-flex min-h-12 items-center justify-center rounded-full bg-teal-700 px-6 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RENEW")} type="button">
+            <div className="grid gap-3 sm:flex sm:flex-wrap">
+              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-700 px-6 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RENEW")} type="button">
                 {subscriptionAction === "RENEW" ? "Opening..." : "Renew & Subscribe"}
               </button>
-              <button className="inline-flex min-h-12 items-center justify-center rounded-full bg-teal-50 px-6 py-3 font-extrabold text-teal-700 transition hover:-translate-y-0.5 dark:hover:bg-teal-900/30" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RESTORE")} type="button">
+              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-50 px-6 py-3 font-extrabold text-teal-700 transition hover:-translate-y-0.5 dark:hover:bg-teal-900/30 sm:w-auto" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RESTORE")} type="button">
                 Sync Purchases
               </button>
             </div>
@@ -1304,7 +1304,7 @@ export default function SettingsPage() {
               <button
                 key={mode}
                 type="button"
-                className={themeMode === mode ? "flex items-center justify-between rounded-[1.5rem] border border-teal-200 bg-teal-50 px-5 py-4 text-left font-extrabold text-teal-700" : "flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-white px-5 py-4 text-left font-extrabold text-slate-800"}
+                className={themeMode === mode ? "flex items-center justify-between rounded-[1.2rem] border border-teal-200 bg-teal-50 px-4 py-3 text-left text-sm font-extrabold text-teal-700 min-[380px]:rounded-[1.5rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base" : "flex items-center justify-between rounded-[1.2rem] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-extrabold text-slate-800 min-[380px]:rounded-[1.5rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base"}
                 onClick={() => handleThemeSubmit(mode)}
               >
                 <span>{getThemeLabel(mode)}</span>
