@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import PasswordField from "../components/PasswordField";
 import { getErrorMessage } from "../lib/format";
 import { LogoButton, LogoPopup } from "../components/LogoPreview";
 
@@ -76,15 +77,14 @@ export default function LoginPage() {
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-teal-900/50" id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
             </div>
             <div className="grid gap-2">
-              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="password">Password</label>
-              <input
-                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-teal-900/50"
+              <PasswordField
                 id="password"
                 name="password"
-                type="password"
                 value={form.password}
                 onChange={handleChange}
                 required
+                labelClassName="font-semibold text-slate-600 dark:text-slate-300"
+                inputClassName="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-teal-900/50"
               />
             </div>
           </div>

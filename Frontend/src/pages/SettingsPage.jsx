@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
@@ -36,10 +38,53 @@ const SYSTEM_MESSAGE_TEMPLATES = [
 ];
 
 const APP_SUBSCRIPTION_PLANS = [
-  { key: "1_MONTH", label: "1 Month", price: 249 },
-  { key: "3_MONTHS", label: "3 Months", price: 599 },
-  { key: "6_MONTHS", label: "6 Months", price: 999 },
-  { key: "12_MONTHS", label: "1 Year", price: 1799 }
+  {
+    key: "12_MONTHS",
+    label: "Yearly Plan",
+    price: 1999,
+    periodLabel: "/year",
+    badge: "Best Value",
+    note: "One payment for the full year with the strongest savings."
+  },
+  {
+    key: "6_MONTHS",
+    label: "Half Yearly Plan",
+    price: 1199,
+    periodLabel: "/6 months",
+    badge: "",
+    note: "A smart middle option for growing libraries."
+  },
+  {
+    key: "1_MONTH",
+    label: "Monthly Plan",
+    price: 249,
+    periodLabel: "/month",
+    badge: "",
+    note: "Flexible monthly access with all Pro features."
+  }
+];
+
+const PRO_SUBSCRIPTION_FEATURES = [
+  {
+    icon: "users",
+    title: "Add Unlimited Students",
+    description: "No limit on student records or active seats."
+  },
+  {
+    icon: "whatsapp",
+    title: "Auto WhatsApp Reminders",
+    description: "Send fee due reminders faster and more consistently."
+  },
+  {
+    icon: "doc",
+    title: "Send Fee Receipts",
+    description: "Share payment proof directly with students and parents."
+  },
+  {
+    icon: "shield",
+    title: "100% Safe Data",
+    description: "Your library records stay protected and organized."
+  }
 ];
 
 const DEFAULT_SHIFT_SETTINGS = [
@@ -267,6 +312,20 @@ function SettingsIcon({ name }) {
         <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3z" />
       </svg>
     ),
+    users: (
+      <svg {...iconProps}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="9.5" cy="7" r="3.5" />
+        <path d="M21 21v-2a4 4 0 0 0-3-3.9" />
+        <path d="M16 3.3a3.5 3.5 0 0 1 0 6.7" />
+      </svg>
+    ),
+    shield: (
+      <svg {...iconProps}>
+        <path d="M12 3l7 3v5c0 4.5-2.8 7.9-7 10-4.2-2.1-7-5.5-7-10V6l7-3z" />
+        <path d="m9.5 12 1.8 1.8L15 10" />
+      </svg>
+    ),
     trash: (
       <svg {...iconProps}>
         <path d="M3 6h18" />
@@ -279,6 +338,12 @@ function SettingsIcon({ name }) {
     chevron: (
       <svg {...iconProps}>
         <path d="m9 6 6 6-6 6" />
+      </svg>
+    ),
+    close: (
+      <svg {...iconProps}>
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
       </svg>
     )
   };
@@ -341,20 +406,22 @@ function SettingsRow({
   );
 }
 
-function ModalFrame({ title, subtitle, onClose, children }) {
+function ModalFrame({ title, subtitle, onClose, children, panelClassName = "", overlayClassName = "", hideHeader = false }) {
   return (
     <>
-      <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={onClose} type="button" aria-label="Close settings popup" />
-      <section className="fixed left-1/2 top-3 z-50 grid max-h-[90vh] w-[min(96vw,760px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(95vw,760px)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:top-5 sm:rounded-[2rem] sm:p-5">
-        <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
-          <div className="min-w-0">
-            <h3 className="m-0 break-words text-xl font-extrabold text-slate-950 min-[380px]:text-2xl">{title}</h3>
-            {subtitle ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
+      <button className={`fixed inset-0 z-40 cursor-default bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
+      <section className={`fixed left-1/2 top-3 z-50 grid max-h-[90vh] w-[min(96vw,760px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(95vw,760px)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:top-5 sm:rounded-[2rem] sm:p-5 relative ${panelClassName}`.trim()}>
+        {hideHeader ? null : (
+          <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
+            <div className="min-w-0">
+              <h3 className="m-0 break-words text-xl font-extrabold text-slate-950 min-[380px]:text-2xl">{title}</h3>
+              {subtitle ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
+            </div>
+            <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={onClose} type="button">
+              Close
+            </button>
           </div>
-          <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={onClose} type="button">
-            Close
-          </button>
-        </div>
+        )}
         {children}
       </section>
     </>
@@ -364,18 +431,17 @@ function ModalFrame({ title, subtitle, onClose, children }) {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { token, patchUser, user, logout, setSession } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [profile, setProfile] = useState(initialProfile);
   const [subscription, setSubscription] = useState(null);
   const [billingHistory, setBillingHistory] = useState([]);
   const [libraries, setLibraries] = useState([]);
   const [themeMode, setThemeMode] = useState(user?.themeMode || "SYSTEM");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [savingLogo, setSavingLogo] = useState(false);
   const [switchingLibrary, setSwitchingLibrary] = useState(false);
   const [subscriptionAction, setSubscriptionAction] = useState("");
-  const [selectedPlanKey, setSelectedPlanKey] = useState("1_MONTH");
+  const [selectedPlanKey, setSelectedPlanKey] = useState("12_MONTHS");
   const [activeModal, setActiveModal] = useState("");
   const [expandedTemplateId, setExpandedTemplateId] = useState("welcome");
   const [copiedItem, setCopiedItem] = useState("");
@@ -436,30 +502,6 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
   }, [token]);
-
-  useEffect(() => {
-    if (!success) return undefined;
-
-    const timeoutId = window.setTimeout(() => {
-      setSuccess("");
-    }, 3200);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [success]);
-
-  useEffect(() => {
-    if (!error) return undefined;
-
-    const timeoutId = window.setTimeout(() => {
-      setError("");
-    }, 4200);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [error]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -860,21 +902,12 @@ export default function SettingsPage() {
 
   return (
     <div className="grid gap-4 pb-6 sm:gap-6">
+      <FloatingToastStack error={error} success={success} />
+
       <section className="pt-1 sm:pt-2">
         <h1 className="m-0 text-[2rem] font-black leading-[0.95] text-slate-950 min-[380px]:text-[2.8rem] sm:text-5xl">Settings</h1>
         <p className="m-0 mt-2 text-sm font-semibold text-slate-500 sm:mt-3 sm:text-base">Manage your account and preferences</p>
       </section>
-
-      {error ? (
-        <div className="rounded-[1.15rem] border border-red-100 bg-red-50 px-4 py-3 text-sm font-extrabold text-red-700 shadow-lg shadow-red-600/10 min-[380px]:rounded-[1.4rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base sm:text-lg">
-          {error}
-        </div>
-      ) : null}
-      {success ? (
-        <div className="rounded-[1.15rem] border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-extrabold text-emerald-700 shadow-lg shadow-emerald-600/10 min-[380px]:rounded-[1.4rem] min-[380px]:px-5 min-[380px]:py-4 min-[380px]:text-base sm:text-lg">
-          {success}
-        </div>
-      ) : null}
 
       <button
         className="flex items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white px-3.5 py-4 text-left shadow-xl shadow-slate-300/15 transition hover:-translate-y-0.5 hover:bg-slate-50 min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:px-4 min-[380px]:py-5 sm:rounded-[2rem] sm:px-5 sm:py-6 dark:hover:bg-slate-800"
@@ -1231,45 +1264,186 @@ export default function SettingsPage() {
       ) : null}
 
       {activeModal === "subscription" ? (
-        <ModalFrame title="Manage Subscription" subtitle="View plan, renew dates, and subscription controls." onClose={() => setActiveModal("")}>
-          <div className="grid gap-4">
-            <div className="rounded-[1.35rem] bg-gradient-to-r from-teal-700 to-sky-600 p-4 text-white shadow-xl shadow-teal-700/20 min-[380px]:rounded-[1.6rem] min-[380px]:p-5 sm:rounded-[2rem]">
-              <strong className="block break-words text-2xl font-black min-[380px]:text-3xl">You are {subscriptionPlan}</strong>
-              <p className="m-0 mt-2 break-words text-base font-semibold text-white/90 min-[380px]:text-lg">{summarySubtitle}</p>
-              <p className="m-0 mt-2 text-sm font-semibold text-white/80">Renewal date: {formatDate(renewsAt)}</p>
-            </div>
+        <ModalFrame
+          title="Manage Subscription"
+          subtitle="View plan, renew dates, and subscription controls."
+          onClose={() => setActiveModal("")}
+          hideHeader
+          panelClassName="overflow-hidden border-slate-800 bg-slate-950 p-0 text-white shadow-[0_35px_120px_rgba(2,6,23,0.72)]"
+          overlayClassName="bg-slate-950/75 backdrop-blur-sm"
+        >
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+            <div className="absolute -left-10 top-8 h-32 w-32 rounded-full bg-cyan-400/20 blur-3xl" />
+            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-500/10 blur-3xl" />
+            <div className="absolute bottom-0 left-1/3 h-28 w-28 rounded-full bg-yellow-300/10 blur-3xl" />
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {APP_SUBSCRIPTION_PLANS.map((plan) => {
-                const active = plan.key === selectedPlanKey;
+            <div className="relative grid gap-5 px-4 pb-5 pt-4 min-[380px]:px-5 min-[380px]:pb-6 min-[380px]:pt-5 sm:px-8 sm:pb-8 sm:pt-7">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/20 bg-yellow-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-yellow-300 min-[380px]:text-[11px]">
+                    Premium Access
+                    <span className="rounded-full bg-yellow-300 px-2 py-0.5 text-[10px] text-slate-950">PRO</span>
+                  </div>
+                  <h3 className="m-0 mt-4 break-words text-[2rem] font-black leading-none text-white min-[380px]:text-[2.45rem] sm:text-[3.3rem]">BrainByte Pro</h3>
+                  <p className="m-0 mt-3 max-w-2xl break-words text-sm font-medium text-slate-300 min-[380px]:text-base">
+                    Upgrade your library with smart reminders, premium communication tools, better billing flow, and a cleaner owner experience.
+                  </p>
+                </div>
 
-                return (
-                  <button
-                    key={plan.key}
-                    type="button"
-                    onClick={() => setSelectedPlanKey(plan.key)}
-                    disabled={Boolean(subscriptionAction)}
-                    className={active ? "rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-left transition hover:-translate-y-0.5 dark:hover:bg-teal-900/30" : "rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <strong className="break-words text-base font-extrabold text-slate-950">{plan.label}</strong>
-                      <span className={active ? "rounded-full bg-teal-100 px-3 py-1 text-xs font-extrabold text-teal-700" : "rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-700"}>
-                        {formatCurrency(plan.price)}
-                      </span>
+                <button
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/10 text-slate-200 transition hover:bg-white/20"
+                  onClick={() => setActiveModal("")}
+                  type="button"
+                  aria-label="Close subscription popup"
+                >
+                  <SettingsIcon name="close" />
+                </button>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-slate-950/40 backdrop-blur min-[380px]:p-5 sm:rounded-[2rem] sm:p-6">
+                  <div className="absolute inset-x-5 top-5 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
+                  <div className="grid gap-4 pt-4 sm:grid-cols-[1.05fr_0.95fr] sm:pt-5">
+                    <div className="grid gap-3">
+                      <div>
+                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200/80 min-[380px]:text-[11px]">Current Status</p>
+                        <strong className="mt-2 block break-words text-2xl font-black text-white min-[380px]:text-[2rem]">You are {subscriptionPlan}</strong>
+                        <p className="m-0 mt-2 break-words text-sm font-medium text-slate-300 min-[380px]:text-base">{summarySubtitle}</p>
+                      </div>
+
+                      <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/35 p-4">
+                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Renewal Date</p>
+                        <strong className="mt-2 block text-lg font-extrabold text-white min-[380px]:text-xl">{renewsAt ? formatDate(renewsAt) : "Starts after payment"}</strong>
+                      </div>
                     </div>
-                    {plan.label === "1 Year" ? <p className="m-0 mt-2 text-sm font-extrabold text-slate-500">Best value</p> : null}
-                  </button>
-                );
-              })}
-            </div>
 
-            <div className="grid gap-3 sm:flex sm:flex-wrap">
-              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-700 px-6 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RENEW")} type="button">
-                {subscriptionAction === "RENEW" ? "Opening..." : "Renew & Subscribe"}
-              </button>
-              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-50 px-6 py-3 font-extrabold text-teal-700 transition hover:-translate-y-0.5 dark:hover:bg-teal-900/30 sm:w-auto" disabled={Boolean(subscriptionAction)} onClick={() => handleSubscriptionAction("RESTORE")} type="button">
-                Sync Purchases
-              </button>
+                    <div className="grid gap-3">
+                      <div className="rounded-[1.4rem] border border-cyan-300/20 bg-cyan-300/10 p-4">
+                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200/80">Built For</p>
+                        <strong className="mt-2 block text-lg font-extrabold text-white">Serious Library Owners</strong>
+                        <p className="m-0 mt-2 text-sm text-slate-300">One place to manage memberships, reminders, receipts, and growth.</p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
+                          <strong className="block text-lg font-black text-white">24x7</strong>
+                          <span className="text-[11px] font-semibold text-slate-400">Access</span>
+                        </div>
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
+                          <strong className="block text-lg font-black text-white">3</strong>
+                          <span className="text-[11px] font-semibold text-slate-400">Plans</span>
+                        </div>
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
+                          <strong className="block text-lg font-black text-white">Pro</strong>
+                          <span className="text-[11px] font-semibold text-slate-400">Tools</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  {PRO_SUBSCRIPTION_FEATURES.map((feature) => (
+                    <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur" key={feature.title}>
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1.1rem] bg-white/10 text-cyan-200">
+                        <SettingsIcon name={feature.icon} />
+                      </span>
+                      <div className="min-w-0">
+                        <strong className="block break-words text-base font-extrabold text-white">{feature.title}</strong>
+                        <p className="m-0 mt-1 break-words text-sm text-slate-300">{feature.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {APP_SUBSCRIPTION_PLANS.map((plan) => {
+                  const active = plan.key === selectedPlanKey;
+
+                  return (
+                    <button
+                      key={plan.key}
+                      type="button"
+                      onClick={() => setSelectedPlanKey(plan.key)}
+                      disabled={Boolean(subscriptionAction)}
+                      className={active ? "rounded-[1.8rem] border-2 border-yellow-300 bg-yellow-300/10 p-4 text-left shadow-[0_18px_40px_rgba(250,204,21,0.12)] transition hover:-translate-y-0.5 min-[380px]:p-5" : "rounded-[1.8rem] border border-white/10 bg-white/5 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/10 min-[380px]:p-5"}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong className={`break-words text-xl font-black min-[380px]:text-[1.7rem] ${active ? "text-yellow-200" : "text-white"}`}>{plan.label}</strong>
+                            {plan.badge ? <span className="rounded-full bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-950">{plan.badge}</span> : null}
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-end gap-2">
+                            <span className="text-4xl font-black leading-none text-white min-[380px]:text-[3.2rem]">{formatCurrency(plan.price)}</span>
+                            <span className="pb-1 text-sm font-bold text-slate-400 min-[380px]:text-base">{plan.periodLabel}</span>
+                          </div>
+                          <p className={`m-0 mt-3 break-words text-sm font-semibold min-[380px]:text-base ${active ? "text-emerald-300" : "text-slate-300"}`}>{plan.note}</p>
+                        </div>
+
+                        <span className={active ? "mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-300 text-[11px] font-black uppercase tracking-[0.16em] text-slate-950" : "mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-sm font-black text-slate-400"}>
+                          {active ? "ON" : ""}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-[1.8rem] border border-white/10 bg-white/5 p-4 backdrop-blur min-[380px]:p-5">
+                <strong className="block text-center text-2xl font-black text-white">Need Help?</strong>
+                <p className="m-0 mt-2 text-center text-sm text-slate-300 min-[380px]:text-base">Questions about Pro plans? Chat with us directly.</p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-3 font-extrabold text-white transition hover:-translate-y-0.5"
+                    onClick={() => window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`, "_blank", "noopener,noreferrer")}
+                    type="button"
+                  >
+                    <SettingsIcon name="whatsapp" />
+                    WhatsApp
+                  </button>
+                  <button
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-sky-500 px-5 py-3 font-extrabold text-white transition hover:-translate-y-0.5"
+                    onClick={() => {
+                      window.location.href = `mailto:${SUPPORT_EMAIL}`;
+                    }}
+                    type="button"
+                  >
+                    <SettingsIcon name="mail" />
+                    Email
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-2 text-center text-sm text-slate-400">
+                  <span>{SUPPORT_WHATSAPP_LABEL}</span>
+                  <span>{SUPPORT_EMAIL}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 border-t border-white/10 pt-4 sm:pt-5">
+                <button
+                  className="inline-flex min-h-14 w-full items-center justify-center rounded-full bg-gradient-to-r from-yellow-300 via-amber-300 to-orange-300 px-6 py-4 text-lg font-black text-slate-950 shadow-[0_18px_45px_rgba(250,204,21,0.28)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={Boolean(subscriptionAction)}
+                  onClick={() => handleSubscriptionAction("RENEW")}
+                  type="button"
+                >
+                  {subscriptionAction === "RENEW" ? "Opening..." : isProActive ? "Renew Pro Access" : "Unlock Pro Access"}
+                </button>
+                <button
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white/10"
+                  disabled={Boolean(subscriptionAction)}
+                  onClick={() => handleSubscriptionAction("RESTORE")}
+                  type="button"
+                >
+                  {subscriptionAction === "RESTORE" ? "Syncing..." : "Restore Purchase"}
+                </button>
+                <p className="m-0 text-center text-xs font-semibold tracking-[0.08em] text-slate-400 min-[380px]:text-sm">
+                  Secure payment flow. Your current app functionality remains unchanged.
+                </p>
+              </div>
             </div>
           </div>
         </ModalFrame>
@@ -1316,12 +1490,12 @@ export default function SettingsPage() {
       ) : null}
 
       {activeModal === "qr" ? (
-        <ModalFrame title="Library QR Code" subtitle="Share real-time seat availability with students." onClose={() => setActiveModal("")}>
+        <ModalFrame title="Library QR Code" subtitle="Share real-time vacant seats with students." onClose={() => setActiveModal("")}>
           {qrPublicUrl ? (
             <div className="grid gap-4">
               <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="mx-auto w-full max-w-md rounded-[2rem] border border-teal-100 bg-white p-5 text-center shadow-lg shadow-slate-300/15">
-                  <img className="mx-auto w-full max-w-[18rem] rounded-[1.75rem] border border-slate-100 bg-white p-3" src={qrImageUrl} alt={`${profile.libraryName || "Library"} seat availability QR code`} />
+                  <img className="mx-auto w-full max-w-[18rem] rounded-[1.75rem] border border-slate-100 bg-white p-3" src={qrImageUrl} alt={`${profile.libraryName || "Library"} vacant seats QR code`} />
                   <button className="mt-4 text-sm font-extrabold uppercase tracking-[0.18em] text-teal-700 underline underline-offset-4" onClick={handleOpenQrPreview} type="button">
                     Preview Page
                   </button>

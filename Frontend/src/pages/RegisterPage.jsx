@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import PasswordField from "../components/PasswordField";
 import { getErrorMessage } from "../lib/format";
 import { LogoButton, LogoPopup } from "../components/LogoPreview";
 
@@ -97,10 +98,15 @@ export default function RegisterPage() {
               <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="address">Library address</label>
               <input className={inputClass} id="address" name="address" value={form.address} onChange={handleChange} />
             </div>
-            <div className="grid gap-2">
-              <label className="font-semibold text-slate-600 dark:text-slate-300" htmlFor="password">Password</label>
-              <input className={inputClass} id="password" name="password" type="password" value={form.password} onChange={handleChange} required />
-            </div>
+            <PasswordField
+              id="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              labelClassName="font-semibold text-slate-600 dark:text-slate-300"
+              inputClassName={inputClass}
+            />
           </div>
 
           <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
@@ -21,11 +23,10 @@ const initialFilters = {
 
 export default function ExpensesPage() {
   const { token } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [expenses, setExpenses] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [filters, setFilters] = useState(initialFilters);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const loadExpenses = async (activeFilters = filters) => {
@@ -101,15 +102,14 @@ export default function ExpensesPage() {
 
   return (
     <div className="grid gap-5 sm:gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.22fr)]">
+      <FloatingToastStack error={error} success={success} />
+
       <section className="grid gap-5 sm:gap-6">
         <article className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
           <div className="grid gap-1">
             <h3 className="m-0 text-2xl font-extrabold">Add Expense</h3>
             <p className="m-0 text-sm text-slate-500 sm:text-base">Track recurring and one-off operating costs.</p>
           </div>
-
-          {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-          {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
           <form className="grid gap-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 min-[520px]:grid-cols-2">

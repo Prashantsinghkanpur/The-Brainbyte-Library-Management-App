@@ -1,9 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
-const isSubscriptionActive = (user) => {
-  return user?.subscriptionPlan === "PRO" && user?.subscriptionStatus === "ACTIVE";
-};
+import { hasProAccess } from "../lib/subscription";
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, user } = useAuth();
@@ -14,7 +11,7 @@ export default function ProtectedRoute({ children }) {
   }
 
   // If subscription is expired (or not PRO/ACTIVE), allow only /settings for renewal.
-  if (!isSubscriptionActive(user)) {
+  if (!hasProAccess(user)) {
     if (location.pathname !== "/settings") {
       return <Navigate to="/settings" replace />;
     }
@@ -22,4 +19,3 @@ export default function ProtectedRoute({ children }) {
 
   return children;
 }
-

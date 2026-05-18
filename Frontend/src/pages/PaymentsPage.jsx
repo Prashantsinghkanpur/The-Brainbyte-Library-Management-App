@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
@@ -29,6 +32,18 @@ const toDateInputDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const toDateInputValue = (value) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return toDateInputDate(date);
+};
+
 const getPlanDays = (plan) => {
   const months = Number(String(plan || "").match(/\d+/)?.[0] || 0);
   return months > 0 ? months * 30 : 0;
@@ -45,15 +60,21 @@ const getPaidTillFromPlan = (startDate, plan) => {
 };
 
 export default function PaymentsPage() {
+  const location = useLocation();
   const { token } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
   const [summary, setSummary] = useState(null);
   const [form, setForm] = useState(initialForm);
   const [filters, setFilters] = useState(initialFilters);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState("");
+  const [deletingPaymentId, setDeletingPaymentId] = useState("");
+  const preselectedStudentId = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    return location.state?.studentId || searchParams.get("studentId") || "";
+  }, [location.search, location.state]);
 
   const loadPayments = async (activeFilters = filters) => {
     setError("");
@@ -85,6 +106,35 @@ export default function PaymentsPage() {
   useEffect(() => {
     loadPayments(initialFilters);
   }, [token]);
+
+  useEffect(() => {
+    if (!preselectedStudentId || students.length === 0) {
+      return;
+    }
+
+    const selectedStudent = students.find((student) => student._id === preselectedStudentId);
+
+    if (!selectedStudent) {
+      return;
+    }
+
+    setForm((current) => {
+      if (current.studentId === preselectedStudentId) {
+        return current;
+      }
+
+      const membershipStartDate =
+        current.membershipStartDate ||
+        toDateInputDate(new Date(selectedStudent.paidTill || selectedStudent.membershipStartDate || new Date()));
+
+      return {
+        ...current,
+        studentId: preselectedStudentId,
+        membershipStartDate,
+        paidTill: current.paidTill || getPaidTillFromPlan(membershipStartDate, selectedStudent.plan)
+      };
+    });
+  }, [preselectedStudentId, students]);
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
@@ -126,8 +176,8 @@ export default function PaymentsPage() {
     setSubmitting(true);
 
     try {
-      await apiRequest("/payments", {
-        method: "POST",
+      await apiRequest(editingPaymentId ? `/payments/${editingPaymentId}` : "/payments", {
+        method: editingPaymentId ? "PATCH" : "POST",
         token,
         body: {
           ...form,
@@ -135,8 +185,9 @@ export default function PaymentsPage() {
         }
       });
 
-      setSuccess("Payment recorded successfully.");
+      setSuccess(editingPaymentId ? "Payment updated successfully." : "Payment recorded successfully.");
       setForm(initialForm);
+      setEditingPaymentId("");
       loadPayments();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
@@ -145,17 +196,76 @@ export default function PaymentsPage() {
     }
   };
 
+  const handleEditPayment = (payment) => {
+    const resolvedStudentId = payment.student?._id || payment.studentId || "";
+
+    setEditingPaymentId(payment._id);
+    setError("");
+    setSuccess("");
+    setForm({
+      studentId: String(resolvedStudentId),
+      amount: payment.amount ?? "",
+      paidTill: toDateInputValue(payment.paidTill),
+      paymentDate: toDateInputValue(payment.paymentDate),
+      membershipStartDate: toDateInputValue(payment.membershipStartDate),
+      method: payment.method || "CASH",
+      notes: payment.notes || ""
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPaymentId("");
+    setForm(initialForm);
+    setError("");
+    setSuccess("");
+  };
+
+  const handleDeletePayment = async (payment) => {
+    const confirmed = window.confirm(`Delete payment of ${formatCurrency(payment.amount)} for ${payment.student?.name || "this student"}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingPaymentId(payment._id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest(`/payments/${payment._id}`, {
+        method: "DELETE",
+        token
+      });
+
+      if (editingPaymentId === payment._id) {
+        setEditingPaymentId("");
+        setForm(initialForm);
+      }
+
+      setSuccess("Payment deleted successfully.");
+      loadPayments();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
+    } finally {
+      setDeletingPaymentId("");
+    }
+  };
+
   return (
     <div className="grid gap-5 sm:gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.22fr)]">
+      <FloatingToastStack error={error} success={success} />
+
       <section className="grid gap-5 sm:gap-6">
         <article className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
           <div className="grid gap-1">
-            <h3 className="m-0 text-2xl font-extrabold">Add Payment</h3>
-            <p className="m-0 text-sm text-slate-500 sm:text-base">Record fee collection and automatically update the student status.</p>
+            <h3 className="m-0 text-2xl font-extrabold">{editingPaymentId ? "Edit Payment" : "Add Payment"}</h3>
+            <p className="m-0 text-sm text-slate-500 sm:text-base">
+              {editingPaymentId
+                ? "Update the payment record and keep the linked student membership in sync."
+                : "Record fee collection and automatically update the student status."}
+            </p>
           </div>
-
-          {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-          {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
           <form className="grid gap-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 min-[520px]:grid-cols-2">
@@ -209,9 +319,16 @@ export default function PaymentsPage() {
               <textarea className="min-h-28 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="payment-notes" name="notes" value={form.notes} onChange={handleFormChange} />
             </div>
 
-            <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={submitting} type="submit">
-              {submitting ? "Saving..." : "Save Payment"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={submitting} type="submit">
+                {submitting ? "Saving..." : editingPaymentId ? "Update Payment" : "Save Payment"}
+              </button>
+              {editingPaymentId ? (
+                <button className="min-h-12 rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={handleCancelEdit} type="button">
+                  Cancel Edit
+                </button>
+              ) : null}
+            </div>
           </form>
         </article>
 
@@ -321,6 +438,15 @@ export default function PaymentsPage() {
                   <p className="m-0 mt-1 break-words">{payment.notes || "-"}</p>
                 </div>
               </div>
+
+              <div className="grid gap-2 min-[430px]:grid-cols-2">
+                <button className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleEditPayment(payment)} type="button">
+                  Edit
+                </button>
+                <button className="min-h-11 rounded-full bg-red-50 px-4 py-2 font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => handleDeletePayment(payment)} type="button">
+                  {deletingPaymentId === payment._id ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </article>
           ))}
           {payments.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No payments found for the current filters.</div> : null}
@@ -336,6 +462,7 @@ export default function PaymentsPage() {
                 <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-slate-500">Payment Date</th>
                 <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-slate-500">Paid Till</th>
                 <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-slate-500">Notes</th>
+                <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -352,6 +479,16 @@ export default function PaymentsPage() {
                   <td className="border-b border-slate-200 px-4 py-3 align-top text-slate-800" data-label="Payment Date">{formatDate(payment.paymentDate)}</td>
                   <td className="border-b border-slate-200 px-4 py-3 align-top text-slate-800" data-label="Paid Till">{formatDate(payment.paidTill)}</td>
                   <td className="max-w-[220px] break-words border-b border-slate-200 px-4 py-3 align-top text-slate-800" data-label="Notes">{payment.notes || "-"}</td>
+                  <td className="border-b border-slate-200 px-4 py-3 align-top text-slate-800" data-label="Actions">
+                    <div className="flex flex-wrap gap-2">
+                      <button className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleEditPayment(payment)} type="button">
+                        Edit
+                      </button>
+                      <button className="rounded-full bg-red-50 px-3 py-2 text-xs font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => handleDeletePayment(payment)} type="button">
+                        {deletingPaymentId === payment._id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

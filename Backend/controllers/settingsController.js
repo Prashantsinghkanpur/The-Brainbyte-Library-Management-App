@@ -8,10 +8,10 @@ const https = require("https");
 const MAX_LOGO_DATA_URL_LENGTH = 350000;
 
 const APP_SUBSCRIPTION_PLANS = {
-  "1_MONTH": { months: 1, days: 30, label: "1 Month", price: 249 },
+  "1_MONTH": { months: 1, days: 30, label: "Monthly Plan", price: 249 },
   "3_MONTHS": { months: 3, days: 90, label: "3 Months", price: 599 },
-  "6_MONTHS": { months: 6, days: 180, label: "6 Months", price: 999 },
-  "12_MONTHS": { months: 12, days: 360, label: "1 Year", price: 1799 }
+  "6_MONTHS": { months: 6, days: 180, label: "Half Yearly Plan", price: 1199 },
+  "12_MONTHS": { months: 12, days: 360, label: "Yearly Plan", price: 1999 }
 };
 
 const getAppSubscriptionPlan = (planKey) => {

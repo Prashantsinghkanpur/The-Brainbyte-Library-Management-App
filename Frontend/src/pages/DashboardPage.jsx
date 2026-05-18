@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
@@ -68,6 +70,7 @@ const getPaidTillFromPlan = (startDate, plan) => {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token, user, setSession } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [analytics, setAnalytics] = useState(null);
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -75,12 +78,10 @@ export default function DashboardPage() {
   const [ownerLibraries, setOwnerLibraries] = useState([]);
   const [activePromo, setActivePromo] = useState("");
   const [homeMode, setHomeMode] = useState(() => localStorage.getItem("brainbyte-home-mode") || "modern");
-  const [actionMessage, setActionMessage] = useState("");
   const [memberForm, setMemberForm] = useState(initialMemberForm);
   const [libraryForm, setLibraryForm] = useState(initialLibraryForm);
   const [creatingMember, setCreatingMember] = useState(false);
   const [creatingLibrary, setCreatingLibrary] = useState(false);
-  const [error, setError] = useState("");
 
   const loadDashboard = async () => {
     setError("");
@@ -168,7 +169,7 @@ export default function DashboardPage() {
   };
 
   const handleShareText = async (message, successText) => {
-    setActionMessage("");
+    setSuccess("");
 
     try {
       if (navigator.share) {
@@ -177,20 +178,20 @@ export default function DashboardPage() {
         await navigator.clipboard.writeText(message);
       }
 
-      setActionMessage(successText);
+      setSuccess(successText);
     } catch {
-      setActionMessage("Could not share automatically. You can copy the message manually.");
+      setSuccess("Could not share automatically. You can copy the message manually.");
     }
   };
 
   const handleOpenCommunity = () => {
     window.open(communityLink, "_blank", "noopener,noreferrer");
-    setActionMessage("Opening WhatsApp community invite.");
+    setSuccess("Opening WhatsApp community invite.");
   };
 
   const openInfoPopup = (type) => {
     setActivePromo(type);
-    setActionMessage("");
+    setSuccess("");
   };
 
   const handleMemberFormChange = (event) => {
@@ -216,7 +217,7 @@ export default function DashboardPage() {
     event.preventDefault();
     setCreatingLibrary(true);
     setError("");
-    setActionMessage("");
+    setSuccess("");
 
     try {
       const data = await apiRequest("/auth/libraries", {
@@ -232,7 +233,7 @@ export default function DashboardPage() {
       setSession({ token: data.token, user: data.user });
       setLibraryForm(initialLibraryForm);
       setActivePromo("");
-      setActionMessage(`${data.library.name} added with ${data.library.seatCount} seats. ${formatCurrency(data.payment.totalAmount)} collected for ${data.payment.libraryCount} librar${data.payment.libraryCount === 1 ? "y" : "ies"}.`);
+      setSuccess(`${data.library.name} added with ${data.library.seatCount} seats. ${formatCurrency(data.payment.totalAmount)} collected for ${data.payment.libraryCount} librar${data.payment.libraryCount === 1 ? "y" : "ies"}.`);
       navigate("/dashboard", { replace: true });
     } catch (createError) {
       setError(getErrorMessage(createError));
@@ -245,7 +246,7 @@ export default function DashboardPage() {
     event.preventDefault();
     setCreatingMember(true);
     setError("");
-    setActionMessage("");
+    setSuccess("");
 
     if (!isTenDigitPhone(memberForm.phone)) {
       setError("Member phone number must be exactly 10 digits.");
@@ -288,7 +289,7 @@ export default function DashboardPage() {
 
       setMemberForm(createInitialMemberForm());
       setActivePromo("");
-      setActionMessage(`${student.name} added as a new member.`);
+      setSuccess(`${student.name} added as a new member.`);
       loadDashboard();
     } catch (createError) {
       setError(getErrorMessage(createError));
@@ -299,6 +300,8 @@ export default function DashboardPage() {
 
   return (
     <div className="grid min-w-0 max-w-full gap-3 overflow-hidden sm:gap-6">
+      <FloatingToastStack error={error} success={success} />
+
       <section className="flex items-start justify-between gap-3 pt-1 sm:pt-8 lg:pt-12">
         <div className="min-w-0">
           <h1 className="m-0 text-[2rem] font-black leading-none text-slate-950 min-[380px]:text-[2.8rem] sm:text-7xl">Admin</h1>
@@ -313,9 +316,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </section>
-
-      {error ? <div className="rounded-[1.15rem] bg-red-50 px-4 py-3 text-sm font-bold text-red-700 min-[380px]:rounded-2xl sm:text-base">{error}</div> : null}
-      {actionMessage ? <div className="rounded-[1.15rem] bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 min-[380px]:rounded-2xl sm:text-base">{actionMessage}</div> : null}
 
       <section className="flex items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:rounded-[1.75rem] sm:p-5">
         <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[1rem] border-4 border-yellow-300 bg-yellow-50 text-base font-black text-yellow-600 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:rounded-3xl min-[380px]:text-xl">
@@ -509,7 +509,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </div>
-              <p className="m-0 text-sm font-bold text-slate-500">Use this sample QR placement for library check-in, fee desk, or admission counter.</p>
+              <p className="m-0 text-sm font-bold text-slate-500">Use this QR to let visitors view only the vacant seats in your library.</p>
             </div>
           ) : activePromo === "branding" ? (
             <div className="grid gap-4">
@@ -534,7 +534,7 @@ export default function DashboardPage() {
             <div className="grid gap-4 text-center">
               <div className="text-3xl font-black text-amber-500">5 Stars</div>
               <p className="m-0 font-bold text-slate-600">Ratings help other library owners trust the app.</p>
-              <button className="mx-auto min-h-12 rounded-full bg-amber-700 px-6 font-extrabold text-white" onClick={() => setActionMessage("Play Store link can be added after publishing.")} type="button">
+              <button className="mx-auto min-h-12 rounded-full bg-amber-700 px-6 font-extrabold text-white" onClick={() => setSuccess("Play Store link can be added after publishing.")} type="button">
                 Rate App
               </button>
             </div>
@@ -840,5 +840,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-

@@ -20,6 +20,16 @@ const studentSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  email: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  address: {
+    type: String,
+    trim: true,
+    default: ""
+  },
   parentName: {
     type: String,
     trim: true,

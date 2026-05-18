@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { getErrorMessage } from "../lib/format";
 
@@ -100,12 +102,11 @@ function SeatBadge({ student }) {
 
 export default function SeatsPage() {
   const { token } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [gridData, setGridData] = useState({ halls: [], summary: {}, seats: [], selectedHall: null });
   const [hallForm, setHallForm] = useState(initialHallForm);
   const [editingHallId, setEditingHallId] = useState("");
   const [filters, setFilters] = useState(initialFilters);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showHallForm, setShowHallForm] = useState(false);
 
@@ -247,6 +248,8 @@ export default function SeatsPage() {
 
   return (
     <div className="grid gap-3 sm:gap-6">
+      <FloatingToastStack error={error} success={success} />
+
       <section className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-start sm:justify-between sm:pt-4">
         <div className="min-w-0">
           <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MANAGEMENT</p>
@@ -261,9 +264,6 @@ export default function SeatsPage() {
           </button>
         </div>
       </section>
-
-      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-      {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
 
       <section className="grid gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/40 min-[380px]:p-4 sm:gap-4 sm:rounded-[1.75rem] sm:p-5">
         <form onSubmit={handleSearchSubmit}>

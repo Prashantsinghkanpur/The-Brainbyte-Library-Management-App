@@ -13,6 +13,8 @@ const normalizeDate = (value) => {
 
 const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
 const isValidPhone = (value) => /^\d{10}$/.test(value);
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const getPlanDays = (plan) => {
   const match = String(plan || "").match(/\d+/);
@@ -86,6 +88,8 @@ exports.addStudent = async (req, res) => {
     const {
       name,
       phone,
+      email,
+      address,
       parentName,
       parentPhone,
       seatNumber,
@@ -107,9 +111,14 @@ exports.addStudent = async (req, res) => {
 
     const normalizedPhone = normalizePhone(phone);
     const normalizedParentPhone = parentPhone ? normalizePhone(parentPhone) : "";
+    const normalizedEmail = email ? normalizeEmail(email) : "";
 
     if (!isValidPhone(normalizedPhone)) {
       return res.status(400).json({ msg: "phone must be exactly 10 digits" });
+    }
+
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ msg: "email is not valid" });
     }
 
     if (normalizedParentPhone && !isValidPhone(normalizedParentPhone)) {
@@ -161,6 +170,8 @@ exports.addStudent = async (req, res) => {
       memberId: await getNextMemberId(req.user.libraryId),
       name: name.trim(),
       phone: normalizedPhone,
+      email: normalizedEmail,
+      address: address ? address.trim() : "",
       parentName: parentName ? parentName.trim() : "",
       parentPhone: normalizedParentPhone,
       hallName: normalizedHallName,
@@ -219,6 +230,8 @@ exports.getStudents = async (req, res) => {
       const searchConditions = [
         { name: { $regex: trimmedSearch, $options: "i" } },
         { phone: { $regex: trimmedSearch, $options: "i" } },
+        { email: { $regex: trimmedSearch, $options: "i" } },
+        { address: { $regex: trimmedSearch, $options: "i" } },
         { parentName: { $regex: trimmedSearch, $options: "i" } },
         { parentPhone: { $regex: trimmedSearch, $options: "i" } }
       ];
@@ -328,6 +341,8 @@ exports.getFormerMembers = async (req, res) => {
       const searchConditions = [
         { name: { $regex: trimmedSearch, $options: "i" } },
         { phone: { $regex: trimmedSearch, $options: "i" } },
+        { email: { $regex: trimmedSearch, $options: "i" } },
+        { address: { $regex: trimmedSearch, $options: "i" } },
         { parentName: { $regex: trimmedSearch, $options: "i" } },
         { parentPhone: { $regex: trimmedSearch, $options: "i" } },
         { hallName: { $regex: trimmedSearch, $options: "i" } }
@@ -401,6 +416,8 @@ exports.updateStudent = async (req, res) => {
     const {
       name,
       phone,
+      email,
+      address,
       parentName,
       parentPhone,
       seatNumber,
@@ -425,6 +442,16 @@ exports.updateStudent = async (req, res) => {
 
       student.phone = normalizedPhone;
     }
+    if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
+
+      if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+        return res.status(400).json({ msg: "email is not valid" });
+      }
+
+      student.email = normalizedEmail;
+    }
+    if (address !== undefined) student.address = address.trim();
     if (parentName !== undefined) student.parentName = parentName.trim();
     if (parentPhone !== undefined) {
       const normalizedParentPhone = normalizePhone(parentPhone);

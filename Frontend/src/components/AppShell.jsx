@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { getErrorMessage } from "../lib/format";
+import { hasProAccess, shouldShowLocalProBypass } from "../lib/subscription";
 import { LogoButton, LogoPopup } from "./LogoPreview";
 
 function NavIcon({ name, className = "h-4 w-4" }) {
@@ -83,6 +84,8 @@ export default function AppShell() {
   const [switchingLibrary, setSwitchingLibrary] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [showLogoPopup, setShowLogoPopup] = useState(false);
+  const proAccessEnabled = hasProAccess(user);
+  const localProBypass = shouldShowLocalProBypass();
 
   useEffect(() => {
     const loadLibraries = async () => {
@@ -151,10 +154,7 @@ export default function AppShell() {
               key={item.path}
               to={item.path}
               className={({ isActive }) => {
-                const subscriptionGated =
-                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
-
-                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+                const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
 
                 if (isRenewOnly) {
                   return "flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition opacity-40 text-slate-400 cursor-not-allowed";
@@ -165,9 +165,7 @@ export default function AppShell() {
                 }`;
               }}
               onClick={(e) => {
-                const subscriptionGated =
-                  user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
-                const isRenewOnly = subscriptionGated && item.path !== "/settings";
+                const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
                 if (isRenewOnly) {
                   e.preventDefault();
                 }
@@ -217,7 +215,9 @@ export default function AppShell() {
           <div className="min-w-0">
             <h2 className="m-0 break-words text-2xl font-extrabold">{user?.name || "Library Owner"}</h2>
           </div>
-          <div className="shrink-0 rounded-full bg-emerald-50 px-4 py-2 text-xs font-extrabold text-emerald-700">{user?.subscriptionStatus || "ACTIVE"}</div>
+          <div className="shrink-0 rounded-full bg-emerald-50 px-4 py-2 text-xs font-extrabold text-emerald-700">
+            {localProBypass ? "LOCAL PRO ACCESS" : user?.subscriptionStatus || "ACTIVE"}
+          </div>
         </header>
         <div className="mb-4 grid gap-2 lg:hidden">
           <select
@@ -244,9 +244,7 @@ export default function AppShell() {
             key={item.path}
             to={item.path}
             className={({ isActive }) => {
-              const subscriptionGated =
-                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
-              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+              const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
 
               if (isRenewOnly) {
                 return "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] opacity-40 text-slate-400 cursor-not-allowed";
@@ -257,9 +255,7 @@ export default function AppShell() {
               }`;
             }}
             onClick={(e) => {
-              const subscriptionGated =
-                user?.subscriptionPlan !== "PRO" || user?.subscriptionStatus !== "ACTIVE";
-              const isRenewOnly = subscriptionGated && item.path !== "/settings";
+              const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
               if (isRenewOnly) {
                 e.preventDefault();
               }

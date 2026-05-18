@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
+import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
 import { getStudentMessageActions } from "../lib/messages";
@@ -15,6 +18,8 @@ const getTodayDateInput = () => toDateInputDate(new Date());
 const createInitialForm = () => ({
   name: "",
   phone: "",
+  email: "",
+  address: "",
   parentName: "",
   parentPhone: "",
   seatNumber: "",
@@ -87,8 +92,227 @@ const occupancyToneClasses = {
   slate: "bg-slate-100 text-slate-600"
 };
 
+const shiftLabelMap = {
+  FULL_DAY: "Full Day",
+  MORNING: "Morning",
+  EVENING: "Evening",
+  CUSTOM: "Custom"
+};
+
+const formatShiftLabel = (shift) => shiftLabelMap[shift] || String(shift || "Shift").replace(/_/g, " ");
+const getSeatDisplay = (hallName, seatNumber) => (
+  Number.isInteger(Number(seatNumber)) && Number(seatNumber) > 0
+    ? `${hallName || "Hall"} - #${seatNumber}`
+    : "Unallocated"
+);
+
+function DirectoryIcon({ name, className = "h-4 w-4" }) {
+  const iconProps = {
+    className,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true"
+  };
+
+  const icons = {
+    search: (
+      <svg {...iconProps}>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
+    ),
+    clock: (
+      <svg {...iconProps}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    ),
+    check: (
+      <svg {...iconProps}>
+        <path d="m20 6-11 11-5-5" />
+      </svg>
+    ),
+    alert: (
+      <svg {...iconProps}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v5" />
+        <path d="M12 16h.01" />
+      </svg>
+    ),
+    phone: (
+      <svg {...iconProps}>
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.77 19.77 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.77 19.77 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72l.39 2.55a2 2 0 0 1-.57 1.71L7.1 9.81a16 16 0 0 0 7.09 7.09l1.83-1.83a2 2 0 0 1 1.71-.57l2.55.39A2 2 0 0 1 22 16.92Z" />
+      </svg>
+    ),
+    status: (
+      <svg {...iconProps}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8h.01" />
+        <path d="M11 12h1v4h1" />
+      </svg>
+    ),
+    calendar: (
+      <svg {...iconProps}>
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4" />
+        <path d="M8 2v4" />
+        <path d="M3 10h18" />
+      </svg>
+    ),
+    pin: (
+      <svg {...iconProps}>
+        <path d="M12 21s6-5.33 6-11a6 6 0 1 0-12 0c0 5.67 6 11 6 11Z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    ),
+    eye: (
+      <svg {...iconProps}>
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+    edit: (
+      <svg {...iconProps}>
+        <path d="M12 20h9" />
+        <path d="m16.5 3.5 4 4L8 20l-5 1 1-5 12.5-12.5Z" />
+      </svg>
+    ),
+    archive: (
+      <svg {...iconProps}>
+        <path d="M3 7h18" />
+        <path d="M5 7v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7" />
+        <path d="M9 11h6" />
+        <path d="M4 4h16v3H4z" />
+      </svg>
+    ),
+    whatsapp: (
+      <svg {...iconProps}>
+        <path d="M20 11.5A8.5 8.5 0 0 1 7.48 19l-4.48 1 1.08-4.36A8.5 8.5 0 1 1 20 11.5Z" />
+        <path d="M9 9.5c.22 1.27 1.82 3.72 4.25 4.5" />
+        <path d="M13.25 14c.55.22 1.35.06 1.75-.5" />
+      </svg>
+    ),
+    message: (
+      <svg {...iconProps}>
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+      </svg>
+    ),
+    copy: (
+      <svg {...iconProps}>
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    ),
+    sparkles: (
+      <svg {...iconProps}>
+        <path d="M12 3v4" />
+        <path d="M12 17v4" />
+        <path d="M3 12h4" />
+        <path d="M17 12h4" />
+        <path d="m5.64 5.64 2.83 2.83" />
+        <path d="m15.53 15.53 2.83 2.83" />
+        <path d="m5.64 18.36 2.83-2.83" />
+        <path d="m15.53 8.47 2.83-2.83" />
+      </svg>
+    ),
+    credit: (
+      <svg {...iconProps}>
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20" />
+      </svg>
+    ),
+    wallet: (
+      <svg {...iconProps}>
+        <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5v-9Z" />
+        <path d="M3 8h14a2 2 0 0 1 2 2v1H3" />
+        <path d="M16 13h.01" />
+      </svg>
+    ),
+    plus: (
+      <svg {...iconProps}>
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    )
+  };
+
+  return icons[name] || null;
+}
+
+function FilterChip({ active, icon, children, onClick }) {
+  return (
+    <button
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-[1.2rem] border px-4 py-2.5 text-sm font-extrabold transition ${
+        active
+          ? "border-teal-700 bg-teal-700 text-white shadow-lg shadow-teal-700/20"
+          : "border-slate-200 bg-white text-slate-800 hover:-translate-y-0.5 hover:bg-slate-50"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon ? <DirectoryIcon className="h-4 w-4" name={icon} /> : null}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function StudentInfoTile({ icon, label, value, valueClassName = "" }) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-white p-3">
+      <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+        <DirectoryIcon className="h-3.5 w-3.5 text-teal-700" name={icon} />
+        {label}
+      </span>
+      <p className={`m-0 mt-2 break-words text-[0.96rem] font-extrabold leading-tight text-slate-900 sm:text-base ${valueClassName}`}>{value}</p>
+    </div>
+  );
+}
+
+function StudentTag({ icon, children, tone = "slate" }) {
+  const toneClasses = {
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    teal: "border-teal-200 bg-teal-50 text-teal-700"
+  };
+
+  return (
+    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] ${toneClasses[tone]}`}>
+      {icon ? <DirectoryIcon className="h-3.5 w-3.5" name={icon} /> : null}
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function StudentActionButton({ as: Component = "button", tone = "neutral", icon, children, className = "", ...props }) {
+  const toneClasses = {
+    neutral: "border border-slate-200 bg-white text-slate-800 hover:bg-slate-50",
+    teal: "border border-teal-700 bg-teal-700 text-white shadow-lg shadow-teal-700/20",
+    success: "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    sky: "border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+    danger: "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+  };
+
+  return (
+    <Component
+      className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[1rem] px-3 py-2 text-xs font-extrabold transition hover:-translate-y-0.5 ${toneClasses[tone]} ${className}`}
+      {...props}
+    >
+      {icon ? <DirectoryIcon className="h-3.5 w-3.5" name={icon} /> : null}
+      <span>{children}</span>
+    </Component>
+  );
+}
+
 export default function StudentsPage() {
+  const navigate = useNavigate();
   const { token } = useAuth();
+  const { error, success, setError, setSuccess } = useTimedAlerts();
   const [students, setStudents] = useState([]);
   const [formerMembers, setFormerMembers] = useState([]);
   const [halls, setHalls] = useState([]);
@@ -104,8 +328,6 @@ export default function StudentsPage() {
   const [deletingFormerId, setDeletingFormerId] = useState("");
   const [viewingStudent, setViewingStudent] = useState(null);
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [copiedId, setCopiedId] = useState("");
   const [showStudentForm, setShowStudentForm] = useState(false);
 
@@ -238,6 +460,8 @@ export default function StudentsPage() {
     setForm({
       name: student.name || "",
       phone: student.phone || "",
+      email: student.email || "",
+      address: student.address || "",
       parentName: student.parentName || "",
       parentPhone: student.parentPhone || "",
       seatNumber: student.seatNumber || "",
@@ -333,7 +557,7 @@ export default function StudentsPage() {
   };
 
   const handleArchiveStudent = async (student) => {
-    const confirmed = window.confirm(`Move ${student.name} to former members and free seat #${student.seatNumber}?`);
+    const confirmed = window.confirm(`Move ${student.name} to former members and free ${getSeatDisplay(student.hallName, student.seatNumber)}?`);
 
     if (!confirmed) return;
 
@@ -373,34 +597,80 @@ export default function StudentsPage() {
     }
   };
 
+  const handlePay = (student) => {
+    navigate(`/payments?studentId=${student._id}`);
+  };
+
   return (
     <div className="grid gap-5 sm:gap-6">
-      <section className="flex items-start justify-between gap-3 pt-2 sm:pt-4">
-        <div className="min-w-0">
-          <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MANAGEMENT</p>
-          <h1 className="m-0 mt-1 text-[2.7rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-7xl">Directory</h1>
-        </div>
-        <div className="grid min-h-16 min-w-16 shrink-0 place-items-center rounded-3xl bg-teal-50 p-3 text-center text-teal-700 sm:min-h-20 sm:min-w-20">
-          <strong className="text-2xl leading-none sm:text-3xl">{directoryView === "active" ? students.length : formerMembers.length}</strong>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider sm:text-xs">{directoryView === "active" ? "Profiles" : "Former"}</span>
-        </div>
-      </section>
+      <FloatingToastStack error={error} success={success} />
 
-      {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 font-bold text-red-700">{error}</div> : null}
-      {success ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">{success}</div> : null}
-
-      <section className="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-300/40 min-[430px]:flex min-[430px]:items-center min-[430px]:justify-between">
-        <div className="grid grid-cols-2 gap-2">
-          <button className={directoryView === "active" ? "min-h-11 rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"} onClick={() => setDirectoryView("active")} type="button">
-            Active Members
-          </button>
-          <button className={directoryView === "former" ? "min-h-11 rounded-full bg-teal-700 px-4 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20" : "min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"} onClick={() => { setDirectoryView("former"); loadFormerMembers(); }} type="button">
-            Former Members
-          </button>
+      <section className="grid gap-5 pt-2 sm:pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.26em] text-slate-500">MANAGEMENT</p>
+            <h1 className="m-0 mt-2 text-[2.8rem] font-black leading-none text-slate-950 min-[380px]:text-5xl sm:text-6xl">Directory</h1>
+          </div>
+          <div className="grid min-h-[5.5rem] min-w-[5.5rem] shrink-0 place-items-center rounded-[1.6rem] bg-teal-50 p-3 text-center text-teal-700">
+            <strong className="text-3xl leading-none">{directoryView === "active" ? students.length : formerMembers.length}</strong>
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.22em]">{directoryView === "active" ? "Profiles" : "Former"}</span>
+          </div>
         </div>
-        <p className="m-0 px-2 text-sm font-bold text-slate-500">
-          {students.length} active | {formerMembers.length} former
-        </p>
+
+        <div className="grid gap-3">
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <FilterChip active={directoryView === "active"} onClick={() => setDirectoryView("active")}>Active Members</FilterChip>
+              <FilterChip active={directoryView === "former"} onClick={() => { setDirectoryView("former"); loadFormerMembers(); }}>Former Members</FilterChip>
+            </div>
+
+            <p className="m-0 px-1 text-sm font-bold text-slate-500">
+              {students.length} active | {formerMembers.length} former
+            </p>
+
+            {directoryView === "active" ? (
+              <>
+                <form onSubmit={handleSearchSubmit}>
+                  <label className="relative block">
+                    <span className="sr-only">Search students</span>
+                    <DirectoryIcon className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-teal-700" name="search" />
+                    <input
+                      className="min-h-[4.25rem] w-full rounded-[1.7rem] border border-slate-200 bg-white pl-14 pr-4 text-base font-semibold text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+                      name="search"
+                      placeholder="Search by name or number..."
+                      value={filters.search}
+                      onChange={handleFilterChange}
+                    />
+                  </label>
+                </form>
+
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap gap-3">
+                    <FilterChip active={!filters.shift} onClick={() => applyQuickFilter({ shift: "" })}>All Shifts</FilterChip>
+                    <FilterChip active={filters.shift === "FULL_DAY"} icon="sparkles" onClick={() => applyQuickFilter({ shift: filters.shift === "FULL_DAY" ? "" : "FULL_DAY" })}>
+                      Full Day
+                    </FilterChip>
+                  </div>
+
+                  <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+                    <FilterChip active={filters.sort === "recent"} icon="clock" onClick={() => applyQuickFilter({ sort: "recent", paymentStatus: "", status: "" })}>
+                      Recent
+                    </FilterChip>
+                    <FilterChip active={filters.paymentStatus === "PAID"} icon="check" onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "PAID" ? "" : "PAID", status: "" })}>
+                      Paid
+                    </FilterChip>
+                    <FilterChip active={filters.paymentStatus === "DUE"} icon="alert" onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "DUE" ? "" : "DUE", status: "" })}>
+                      Dues
+                    </FilterChip>
+                    <FilterChip active={filters.status === "ACTIVE"} icon="status" onClick={() => applyQuickFilter({ status: filters.status === "ACTIVE" ? "" : "ACTIVE", paymentStatus: "" })}>
+                      Active
+                    </FilterChip>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       {viewingStudent ? (
@@ -422,7 +692,7 @@ export default function StudentsPage() {
             <div className="min-w-0">
               <strong>{viewingStudent.plan}</strong>
               <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
-                {viewingStudent.hallName} | Seat #{viewingStudent.seatNumber} | {viewingStudent.shift}
+                {getSeatDisplay(viewingStudent.hallName, viewingStudent.seatNumber)} | {viewingStudent.shift}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">{viewingStudent.status}</span>
@@ -438,6 +708,10 @@ export default function StudentsPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
               <p className="m-0 mt-1 break-words">{viewingStudent.phone}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Email</span>
+              <p className="m-0 mt-1 break-all">{viewingStudent.email || "-"}</p>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Name</span>
@@ -457,11 +731,15 @@ export default function StudentsPage() {
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat</span>
-              <p className="m-0 mt-1 break-words">{viewingStudent.hallName} | #{viewingStudent.seatNumber}</p>
+              <p className="m-0 mt-1 break-words">{getSeatDisplay(viewingStudent.hallName, viewingStudent.seatNumber)}</p>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Shift</span>
               <p className="m-0 mt-1 break-words">{viewingStudent.shift}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:col-span-2">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Address</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.address || "-"}</p>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-4">
               <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
@@ -518,76 +796,15 @@ export default function StudentsPage() {
       ) : null}
 
       {directoryView === "active" ? (
-      <section className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
-        <form onSubmit={handleSearchSubmit}>
-          <input
-            className="min-h-14 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-lg outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
-            name="search"
-            placeholder="Search by name or number..."
-            value={filters.search}
-            onChange={handleFilterChange}
-          />
-        </form>
-
-        <div className="grid gap-3">
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              className={!filters.shift ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-              onClick={() => applyQuickFilter({ shift: "" })}
-            >
-              All Shifts
-            </button>
-            <button
-              type="button"
-              className={filters.shift === "FULL_DAY" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-              onClick={() => applyQuickFilter({ shift: filters.shift === "FULL_DAY" ? "" : "FULL_DAY" })}
-            >
-              Full Day
-            </button>
+      <section className="grid gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="m-0 text-2xl font-extrabold text-slate-950">Profiles</h3>
+            <p className="m-0 mt-1 text-sm font-bold text-slate-500">Mobile layout updated to match the student directory style more closely.</p>
           </div>
-        </div>
-
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-          <button
-            type="button"
-            className={filters.sort === "recent" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => applyQuickFilter({ sort: "recent", paymentStatus: "", status: "" })}
-          >
-            Recent
-          </button>
-          <button
-            type="button"
-            className={filters.paymentStatus === "PAID" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "PAID" ? "" : "PAID", status: "" })}
-          >
-            Paid
-          </button>
-          <button
-            type="button"
-            className={filters.paymentStatus === "DUE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => applyQuickFilter({ paymentStatus: filters.paymentStatus === "DUE" ? "" : "DUE", status: "" })}
-          >
-            Dues
-          </button>
-          <button
-            type="button"
-            className={filters.status === "ACTIVE" ? "whitespace-nowrap rounded-full bg-teal-700 px-4 py-2 font-bold text-white shadow-lg shadow-teal-700/20" : "whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5"}
-            onClick={() => applyQuickFilter({ status: filters.status === "ACTIVE" ? "" : "ACTIVE", paymentStatus: "" })}
-          >
-            Active
-          </button>
-        </div>
-      </section>
-      ) : null}
-
-      {directoryView === "active" ? (
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-300/40">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="m-0 text-2xl font-extrabold">Profiles</h3>
-          <button className="hidden min-h-11 shrink-0 items-center justify-center rounded-full bg-teal-700 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 sm:inline-flex sm:min-h-12 sm:px-5 sm:py-3 sm:text-base" onClick={openStudentForm} type="button">
+          <StudentActionButton className="hidden shrink-0 sm:inline-flex min-h-12 px-5 py-3 text-sm" icon="plus" onClick={openStudentForm} tone="teal" type="button">
             New Member
-          </button>
+          </StudentActionButton>
         </div>
 
         <div className="grid gap-4">
@@ -596,88 +813,125 @@ export default function StudentsPage() {
             const occupancy = getSeatOccupancyLabel(student.paidTill);
 
             return (
-              <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={student._id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-600 text-lg font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{student.name.slice(0, 2).toUpperCase()}</div>
+              <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-[0_14px_36px_-28px_rgba(15,23,42,0.35)]" key={student._id}>
+                <div className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-4 sm:px-4">
+                  <div className="relative shrink-0">
+                    <div className="grid h-14 w-14 place-items-center rounded-[1.15rem] bg-gradient-to-br from-sky-600 to-cyan-500 text-lg font-extrabold text-white shadow-[0_16px_30px_-20px_rgba(2,132,199,0.9)] sm:h-16 sm:w-16 sm:rounded-[1.3rem] sm:text-xl">
+                      {student.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />
+                  </div>
+
                   <div className="min-w-0 flex-1">
-                    <strong className="block break-words leading-tight">{student.name}</strong>
-                    <p className="m-0 mt-1 text-xs text-slate-500 sm:text-sm">MEMBER ID: #{student.memberId}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-2 text-[11px] font-extrabold text-emerald-700 sm:text-xs">{student.status}</span>
-                </div>
-
-                <div className="grid gap-3 min-[430px]:grid-cols-2">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
-                    <p className="m-0 mt-1 break-words">{student.phone}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
-                    <p className="m-0 mt-1 break-words">{student.status}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
-                    <p className="m-0 mt-1 break-words">{student.parentName || "-"}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
-                    <p className="m-0 mt-1 break-words">{student.parentPhone || "-"}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
-                    <p className="m-0 mt-1 break-words">{formatDate(student.joinedDate)}</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat</span>
-                    <p className="m-0 mt-1 break-words">{student.hallName} - #{student.seatNumber}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <strong className="block break-words text-[1.2rem] font-black leading-tight text-slate-950 sm:text-[1.35rem]">{student.name}</strong>
+                        <p className="m-0 mt-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Member ID: #{student.memberId}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-700">
+                        {student.status}
+                      </span>
+                    </div>
+                    {student.parentName || student.parentPhone ? (
+                      <p className="m-0 mt-2 truncate text-xs font-semibold text-slate-500">
+                        Parent: {student.parentName || "-"}{student.parentPhone ? ` | ${student.parentPhone}` : ""}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 min-[430px]:flex min-[430px]:items-center min-[430px]:justify-between">
-                  <div className="min-w-0">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Validity</span>
-                    <p className="m-0 mt-1 break-words">
-                      {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
-                    </p>
-                    <span className={`mt-3 inline-flex rounded-full px-3 py-2 text-xs font-extrabold ${occupancyToneClasses[occupancy.tone]}`}>
-                      {occupancy.text}
-                    </span>
+                <div className="grid grid-cols-2 gap-2 px-3.5 py-3 sm:px-4">
+                  <StudentInfoTile icon="phone" label="Phone" value={student.phone} />
+                  <StudentInfoTile
+                    icon="status"
+                    label="Status"
+                    value={student.status}
+                    valueClassName={student.status === "Active" || student.status === "ACTIVE" ? "text-emerald-600" : ""}
+                  />
+                  <StudentInfoTile icon="calendar" label="Joined" value={formatDate(student.joinedDate)} />
+                  <StudentInfoTile icon="pin" label="Seat" value={getSeatDisplay(student.hallName, student.seatNumber)} />
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
+                  <StudentTag icon="sparkles" tone="teal">{formatShiftLabel(student.shift)}</StudentTag>
+                  <StudentTag icon="wallet" tone="slate">{formatCurrency(student.feeAmount)}</StudentTag>
+                  <StudentTag icon="credit" tone="sky">{student.plan}</StudentTag>
+                  <StudentTag icon="calendar" tone="slate">
+                    {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
+                  </StudentTag>
+                  <span className={`inline-flex min-h-8 items-center rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] ${occupancyToneClasses[occupancy.tone]}`}>
+                    {occupancy.text}
+                  </span>
+                </div>
+
+                <div className="grid gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
+                  <div className="grid grid-cols-3 gap-2">
+                    <StudentActionButton className="px-2" disabled={loadingStudentDetail} icon="eye" onClick={() => handleView(student)} type="button">
+                      {loadingStudentDetail ? "Opening..." : "View"}
+                    </StudentActionButton>
+                    <StudentActionButton className="px-2" icon="edit" onClick={() => handleEdit(student)} type="button">
+                      Edit
+                    </StudentActionButton>
+                    <StudentActionButton className="px-2" icon="wallet" onClick={() => handlePay(student)} tone="teal" type="button">
+                      Pay
+                    </StudentActionButton>
                   </div>
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-5 py-2 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5" onClick={() => handleEdit(student)} type="button">
-                    Edit
-                  </button>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{student.shift}</span>
-                  <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">{formatCurrency(student.feeAmount)}</span>
-                </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <StudentActionButton
+                      as="a"
+                      href={actions.welcomeLinks.whatsapp}
+                      icon="whatsapp"
+                      rel="noreferrer"
+                      target="_blank"
+                      tone="success"
+                    >
+                      WA Welcome
+                    </StudentActionButton>
+                    <StudentActionButton
+                      as="a"
+                      href={actions.welcomeLinks.sms}
+                      icon="message"
+                      tone="sky"
+                    >
+                      SMS Welcome
+                    </StudentActionButton>
+                    <StudentActionButton
+                      className="px-1"
+                      disabled={archivingId === student._id}
+                      icon="archive"
+                      onClick={() => handleArchiveStudent(student)}
+                      tone="danger"
+                      type="button"
+                    >
+                      {archivingId === student._id ? "..." : "Former"}
+                    </StudentActionButton>
+                  </div>
 
-                <div className="grid gap-2 min-[430px]:grid-cols-2 lg:grid-cols-3">
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" disabled={loadingStudentDetail} onClick={() => handleView(student)} type="button">
-                    {loadingStudentDetail ? "Opening..." : "View"}
-                  </button>
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-50 px-4 py-2 font-bold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={archivingId === student._id} onClick={() => handleArchiveStudent(student)} type="button">
-                    {archivingId === student._id ? "Moving..." : "Move Former"}
-                  </button>
-                  <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.welcomeLinks.whatsapp} target="_blank" rel="noreferrer">
-                    Welcome WhatsApp
-                  </a>
-                  <a className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-50 px-4 py-2 font-bold text-teal-700 transition hover:-translate-y-0.5" href={actions.reminderLinks.whatsapp} target="_blank" rel="noreferrer">
-                    Reminder WhatsApp
-                  </a>
-                  <a className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" href={actions.welcomeLinks.sms}>
-                    Welcome SMS
-                  </a>
-                  <a className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" href={actions.reminderLinks.sms}>
-                    Reminder SMS
-                  </a>
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleCopyMessage(student, "welcome")} type="button">
-                    {copiedId === `${student._id}-welcome` ? "Copied" : "Copy Welcome"}
-                  </button>
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleCopyMessage(student, "reminder")} type="button">
-                    {copiedId === `${student._id}-reminder` ? "Copied" : "Copy Reminder"}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <StudentActionButton
+                      as="a"
+                      href={actions.reminderLinks.whatsapp}
+                      icon="whatsapp"
+                      rel="noreferrer"
+                      target="_blank"
+                      tone="success"
+                    >
+                      WA Reminder
+                    </StudentActionButton>
+                    <StudentActionButton as="a" href={actions.reminderLinks.sms} icon="message" tone="sky">
+                      SMS Reminder
+                    </StudentActionButton>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "welcome")} type="button">
+                      {copiedId === `${student._id}-welcome` ? "Copied Welcome" : "Copy Welcome"}
+                    </StudentActionButton>
+                    <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "reminder")} type="button">
+                      {copiedId === `${student._id}-reminder` ? "Copied Reminder" : "Copy Reminder"}
+                    </StudentActionButton>
+                  </div>
                 </div>
               </article>
             );
@@ -722,7 +976,7 @@ export default function StudentsPage() {
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
                   <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Former Seat</span>
-                  <p className="m-0 mt-1 break-words">{member.hallName} - #{member.seatNumber}</p>
+                  <p className="m-0 mt-1 break-words">{getSeatDisplay(member.hallName, member.seatNumber)}</p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
                   <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
@@ -793,12 +1047,20 @@ export default function StudentsPage() {
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-phone" name="phone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={form.phone} onChange={handleFormChange} required />
             </div>
             <div className="grid gap-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-email">Email</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-email" name="email" type="email" value={form.email} onChange={handleFormChange} />
+            </div>
+            <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-parentName">Parent Name</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentName" name="parentName" value={form.parentName} onChange={handleFormChange} />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-parentPhone">Parent Number</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-parentPhone" name="parentPhone" type="tel" inputMode="numeric" maxLength="10" pattern="\d{10}" title="Enter exactly 10 digits" value={form.parentPhone} onChange={handleFormChange} />
+            </div>
+            <div className="grid gap-2 min-[520px]:col-span-2">
+              <label className="font-semibold text-slate-600" htmlFor="student-address">Address</label>
+              <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="student-address" name="address" value={form.address} onChange={handleFormChange} />
             </div>
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-seat">Seat Number</label>
@@ -867,8 +1129,3 @@ export default function StudentsPage() {
     </div>
   );
 }
-
-
-
-
-
