@@ -121,7 +121,8 @@ const initialOwnerGrantForm = {
   durationDays: "",
   renewsAt: "",
   note: "",
-  ownerSecret: ""
+  ownerSecret: "",
+  manualFee: "0"
 };
 
 const createQrImageUrl = (url, size = 420) =>
@@ -844,6 +845,7 @@ export default function SettingsPage() {
       const payload = {
         email: targetEmail,
         note,
+        manualFee: Number(ownerGrantForm.manualFee || 0),
         startsFromCurrentExpiry: true
       };
 
@@ -1963,6 +1965,20 @@ export default function SettingsPage() {
                   {showOwnerGrantSecret ? "Hide" : "Show"}
                 </button>
               </div>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Manual Fee</span>
+              <input
+                className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                min="0"
+                name="manualFee"
+                onChange={handleOwnerGrantChange}
+                placeholder="0 for free access"
+                step="0.01"
+                type="number"
+                value={ownerGrantForm.manualFee}
+              />
             </label>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

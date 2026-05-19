@@ -284,6 +284,30 @@ const buildSubscriptionSnapshot = (user) => ({
   renewsAt: user?.subscriptionRenewsAt || null
 });
 
+const buildManualGrantPlanDetails = ({ planKey, normalizedPlan, complimentaryDurationDays, renewsAt }) => {
+  if (normalizedPlan) {
+    return {
+      key: String(planKey || "").toUpperCase(),
+      label: normalizedPlan.label,
+      days: normalizedPlan.days
+    };
+  }
+
+  if (complimentaryDurationDays) {
+    return {
+      key: "CUSTOM_DAYS",
+      label: `${complimentaryDurationDays} Days Manual Grant`,
+      days: complimentaryDurationDays
+    };
+  }
+
+  return {
+    key: "CUSTOM_DATE",
+    label: `Manual Grant till ${new Date(renewsAt).toLocaleDateString("en-IN")}`,
+    days: 1
+  };
+};
+
 const logProductOwnerAction = async ({
   actor,
   actionType,
@@ -714,6 +738,7 @@ exports.grantComplimentarySubscription = async (req, res) => {
       email,
       plan,
       durationDays,
+      manualFee,
       renewsAt,
       note,
       startsFromCurrentExpiry = true
@@ -769,6 +794,20 @@ exports.grantComplimentarySubscription = async (req, res) => {
       return res.status(400).json({ msg: "note cannot exceed 300 characters" });
     }
 
+    const parsedManualFee = Number(manualFee);
+    if (!Number.isFinite(parsedManualFee) || parsedManualFee < 0) {
+      return res.status(400).json({ msg: "manualFee must be a valid number greater than or equal to 0" });
+    }
+
+    const targetLibrary = await Library.findById(targetUser.libraryId);
+    const seatCount = Math.max(1, Number(targetLibrary?.seatCount || 0));
+    const manualGrantPlan = buildManualGrantPlanDetails({
+      planKey: plan,
+      normalizedPlan,
+      complimentaryDurationDays,
+      renewsAt: nextRenewsAt
+    });
+
     targetUser.subscriptionPlan = "PRO";
     targetUser.subscriptionStatus = "ACTIVE";
     targetUser.subscriptionRenewsAt = nextRenewsAt;
@@ -783,6 +822,25 @@ exports.grantComplimentarySubscription = async (req, res) => {
     };
 
     await targetUser.save();
+    await AppSubscriptionPayment.create({
+      userId: targetUser._id,
+      libraryId: targetUser.libraryId,
+      amount: parsedManualFee,
+      seatCount,
+      amountPerSeat: 0,
+      currency: "INR",
+      paymentSource: "MANUAL_GRANT",
+      razorpayOrderId: `manual_grant_${targetUser._id}_${Date.now()}`.slice(0, 80),
+      razorpayPaymentId: `manual_grant_fee_${Date.now()}`.slice(0, 80),
+      razorpaySignature: "manual-grant",
+      subscriptionPlanKey: manualGrantPlan.key,
+      subscriptionPlanLabel: manualGrantPlan.label,
+      subscriptionPlanDays: manualGrantPlan.days,
+      status: "PAID",
+      plan: "PRO",
+      paidAt: new Date(),
+      renewsAt: nextRenewsAt
+    });
     await logProductOwnerAction({
       actor,
       actionType: "GRANT_COMPLIMENTARY_PRO",
@@ -791,13 +849,13 @@ exports.grantComplimentarySubscription = async (req, res) => {
       nextSubscription: buildSubscriptionSnapshot(targetUser),
       note: normalizedNote,
       metadata: {
+        manualFee: parsedManualFee,
         planKey: normalizedPlan ? String(plan).toUpperCase() : undefined,
         durationDays: complimentaryDurationDays || undefined,
         startsFromCurrentExpiry: Boolean(startsFromCurrentExpiry)
       }
     });
 
-    const targetLibrary = await Library.findById(targetUser.libraryId);
     res.json({
       msg: "Complimentary Pro access granted successfully",
       subscription: buildSubscriptionResponse(targetUser, targetLibrary),
@@ -1229,10 +1287,12 @@ exports.getBillingHistory = async (req, res) => {
       amount: payment.amount,
       seatCount: payment.seatCount || 0,
       amountPerSeat: payment.amountPerSeat || 0,
-      method: "RAZORPAY",
+      method: payment.paymentSource === "MANUAL_GRANT" ? "MANUAL" : "RAZORPAY",
       status: payment.status,
       paymentDate: payment.paidAt || payment.createdAt,
-      note: "Brainbyte Pro subscription",
+      note: payment.paymentSource === "MANUAL_GRANT"
+        ? (Number(payment.amount || 0) === 0 ? "Complimentary Pro access" : "Manual Pro subscription")
+        : "Brainbyte Pro subscription",
       reference: payment.razorpayPaymentId || payment.razorpayOrderId
     }));
 

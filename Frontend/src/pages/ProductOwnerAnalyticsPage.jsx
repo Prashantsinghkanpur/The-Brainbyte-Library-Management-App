@@ -20,7 +20,8 @@ const initialGrantForm = {
   plan: "12_MONTHS",
   durationDays: "",
   renewsAt: "",
-  note: ""
+  note: "",
+  manualFee: "0"
 };
 
 function MetricCard({ title, value, detail, tone = "teal" }) {
@@ -194,6 +195,7 @@ export default function ProductOwnerAnalyticsPage() {
       const payload = {
         email: targetEmail,
         note: String(grantForm.note || "").trim(),
+        manualFee: Number(grantForm.manualFee || 0),
         startsFromCurrentExpiry: true
       };
 
@@ -425,6 +427,19 @@ export default function ProductOwnerAnalyticsPage() {
                     value={grantForm.note}
                   />
                 </label>
+                <label className="grid gap-2 sm:col-span-1">
+                  <span className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-500">Manual Fee</span>
+                  <input
+                    className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                    min="0"
+                    name="manualFee"
+                    onChange={handleGrantFieldChange}
+                    placeholder="0 for free access"
+                    step="0.01"
+                    type="number"
+                    value={grantForm.manualFee}
+                  />
+                </label>
               </div>
 
               <div className="flex justify-end">
@@ -631,9 +646,10 @@ export default function ProductOwnerAnalyticsPage() {
                         Renews: {formatDate(log.previousSubscriptionRenewsAt)} {" -> "} {formatDate(log.nextSubscriptionRenewsAt)}
                       </span>
                     </div>
-                    {log.note ? (
+                    {log.note || typeof log.metadata?.manualFee === "number" ? (
                       <div className="rounded-[1.1rem] bg-white px-3 py-3 text-sm font-semibold text-slate-700">
-                        {log.note}
+                        {log.note ? log.note : "No note added"}
+                        {typeof log.metadata?.manualFee === "number" ? ` | Fee: ${formatCurrency(log.metadata.manualFee)}` : ""}
                       </div>
                     ) : null}
                   </article>

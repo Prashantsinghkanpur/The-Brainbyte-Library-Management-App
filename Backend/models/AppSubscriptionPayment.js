@@ -16,7 +16,7 @@ const appSubscriptionPaymentSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
-    min: 1
+    min: 0
   },
   seatCount: {
     type: Number,
@@ -54,6 +54,12 @@ const appSubscriptionPaymentSchema = new mongoose.Schema({
     type: String,
     enum: ["CREATED", "PAID", "FAILED"],
     default: "CREATED",
+    index: true
+  },
+  paymentSource: {
+    type: String,
+    enum: ["RAZORPAY", "MANUAL_GRANT"],
+    default: "RAZORPAY",
     index: true
   },
   razorpayOrderId: {
