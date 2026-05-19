@@ -2,6 +2,7 @@ const User = require("../models/User");
 const Library = require("../models/Library");
 const Hall = require("../models/Hall");
 const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
+const ProductOwnerActionLog = require("../models/ProductOwnerActionLog");
 const crypto = require("crypto");
 const https = require("https");
 
@@ -20,6 +21,7 @@ const getAppSubscriptionPlan = (planKey) => {
 };
 
 const LOGO_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+const OWNER_GRANT_SECRET_HEADER = "x-product-owner-secret";
 
 const getSubscriptionAmount = () => {
   const amount = Number(process.env.APP_SUBSCRIPTION_AMOUNT || 499);
@@ -215,6 +217,100 @@ const buildRenewalDate = (currentRenewal, planDays) => {
   return safeBase;
 };
 
+const buildYearRange = (year) => {
+  const numericYear = Number(year) || new Date().getFullYear();
+  return {
+    year: numericYear,
+    start: new Date(numericYear, 0, 1),
+    end: new Date(numericYear + 1, 0, 1)
+  };
+};
+
+const clearComplimentaryGrant = (user) => {
+  user.subscriptionGrantType = "PAID";
+  user.complimentaryGrant = undefined;
+};
+
+const activatePaidPro = (user, renewsAt) => {
+  user.subscriptionPlan = "PRO";
+  user.subscriptionStatus = "ACTIVE";
+  user.subscriptionRenewsAt = renewsAt;
+  clearComplimentaryGrant(user);
+};
+
+const getConfiguredOwnerEmails = () =>
+  String(process.env.PRODUCT_OWNER_EMAILS || "")
+    .split(/[,\n;]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+const getAuthorizedProductOwner = async (req) => {
+  const actor = await User.findById(req.user.userId);
+
+  if (!actor) {
+    const error = new Error("Requesting user not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const providedSecret = String(req.headers[OWNER_GRANT_SECRET_HEADER] || "").trim();
+  const configuredSecret = String(process.env.PRODUCT_OWNER_GRANT_SECRET || "").trim();
+  if (!configuredSecret) {
+    const error = new Error("Product owner grant secret is not configured");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  if (!providedSecret || providedSecret !== configuredSecret) {
+    const error = new Error("Owner secret did not match. If you changed Backend/.env, restart the backend server and try again.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const ownerEmails = getConfiguredOwnerEmails();
+  if (ownerEmails.length && !ownerEmails.includes(String(actor?.email || "").trim().toLowerCase())) {
+    const error = new Error(`Logged in email ${actor.email} is not allowed for product owner controls. Check PRODUCT_OWNER_EMAILS in Backend/.env and restart the backend server.`);
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return actor;
+};
+
+const buildSubscriptionSnapshot = (user) => ({
+  plan: user?.subscriptionPlan || "FREE",
+  status: user?.subscriptionStatus || "EXPIRED",
+  grantType: user?.subscriptionGrantType || "NONE",
+  renewsAt: user?.subscriptionRenewsAt || null
+});
+
+const logProductOwnerAction = async ({
+  actor,
+  actionType,
+  targetUser,
+  previousSubscription,
+  nextSubscription,
+  note,
+  metadata
+}) => ProductOwnerActionLog.create({
+  actorUserId: actor._id,
+  actorEmail: actor.email,
+  actionType,
+  targetUserId: targetUser._id,
+  targetEmail: targetUser.email,
+  targetLibraryId: targetUser.libraryId,
+  previousSubscriptionPlan: previousSubscription?.plan,
+  previousSubscriptionStatus: previousSubscription?.status,
+  previousSubscriptionGrantType: previousSubscription?.grantType,
+  previousSubscriptionRenewsAt: previousSubscription?.renewsAt,
+  nextSubscriptionPlan: nextSubscription?.plan,
+  nextSubscriptionStatus: nextSubscription?.status,
+  nextSubscriptionGrantType: nextSubscription?.grantType,
+  nextSubscriptionRenewsAt: nextSubscription?.renewsAt,
+  note: note || undefined,
+  metadata: metadata || {}
+});
+
 const getStoredSubscriptionPlanDays = async (paymentRecord) => {
   const storedPlanDays = Number(paymentRecord.subscriptionPlanDays || 0);
   if (storedPlanDays > 0) {
@@ -273,9 +369,7 @@ const syncPendingSubscriptionPayment = async (user, paymentRecord) => {
   );
   paymentRecord.renewsAt = renewsAt;
 
-  user.subscriptionPlan = "PRO";
-  user.subscriptionStatus = "ACTIVE";
-  user.subscriptionRenewsAt = renewsAt;
+  activatePaidPro(user, renewsAt);
 
   await paymentRecord.save();
   await user.save();
@@ -575,6 +669,7 @@ exports.updateSubscription = async (req, res) => {
         latestPaidSubscription ||
         (
           user.subscriptionPlan === "PRO" &&
+          user.subscriptionGrantType !== "COMPLIMENTARY" &&
           user.subscriptionRenewsAt &&
           new Date(user.subscriptionRenewsAt).getTime() > Date.now()
         );
@@ -588,6 +683,7 @@ exports.updateSubscription = async (req, res) => {
       if (latestPaidSubscription?.renewsAt) {
         user.subscriptionRenewsAt = latestPaidSubscription.renewsAt;
       }
+      clearComplimentaryGrant(user);
     } else if (normalizedAction === "RENEW") {
       return res.status(400).json({ msg: "Use Razorpay checkout to renew" });
     } else if (normalizedAction === "CANCEL") {
@@ -606,6 +702,361 @@ exports.updateSubscription = async (req, res) => {
     res.json(buildSubscriptionResponse(user, library));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.grantComplimentarySubscription = async (req, res) => {
+  try {
+    const actor = await getAuthorizedProductOwner(req);
+
+    const {
+      userId,
+      email,
+      plan,
+      durationDays,
+      renewsAt,
+      note,
+      startsFromCurrentExpiry = true
+    } = req.body || {};
+
+    if (!userId && !email) {
+      return res.status(400).json({ msg: "userId or email is required" });
+    }
+
+    const trimmedEmail = String(email || "").trim().toLowerCase();
+    const targetUser = userId
+      ? await User.findById(userId)
+      : await User.findOne({ email: trimmedEmail });
+
+    if (!targetUser) {
+      return res.status(404).json({ msg: "Target user not found" });
+    }
+
+    const previousSubscription = buildSubscriptionSnapshot(targetUser);
+    const normalizedPlan = plan ? getAppSubscriptionPlan(plan) : null;
+    if (plan && !normalizedPlan) {
+      return res.status(400).json({ msg: "Invalid plan" });
+    }
+
+    const parsedDurationDays = Number(durationDays || 0);
+    const hasExplicitDuration = Number.isInteger(parsedDurationDays) && parsedDurationDays > 0;
+    const complimentaryDurationDays = normalizedPlan?.days || (hasExplicitDuration ? parsedDurationDays : 0);
+
+    if (!renewsAt && !complimentaryDurationDays) {
+      return res.status(400).json({ msg: "Provide a valid plan, durationDays, or renewsAt" });
+    }
+
+    if (complimentaryDurationDays > 3650) {
+      return res.status(400).json({ msg: "durationDays cannot be more than 3650" });
+    }
+
+    let nextRenewsAt;
+    if (renewsAt) {
+      nextRenewsAt = new Date(renewsAt);
+      if (Number.isNaN(nextRenewsAt.getTime())) {
+        return res.status(400).json({ msg: "renewsAt must be a valid date" });
+      }
+      if (nextRenewsAt.getTime() <= Date.now()) {
+        return res.status(400).json({ msg: "renewsAt must be in the future" });
+      }
+    } else {
+      const renewalBase = startsFromCurrentExpiry ? targetUser.subscriptionRenewsAt : null;
+      nextRenewsAt = buildRenewalDate(renewalBase, complimentaryDurationDays);
+    }
+
+    const normalizedNote = typeof note === "string" ? note.trim() : "";
+    if (normalizedNote.length > 300) {
+      return res.status(400).json({ msg: "note cannot exceed 300 characters" });
+    }
+
+    targetUser.subscriptionPlan = "PRO";
+    targetUser.subscriptionStatus = "ACTIVE";
+    targetUser.subscriptionRenewsAt = nextRenewsAt;
+    targetUser.subscriptionGrantType = "COMPLIMENTARY";
+    targetUser.complimentaryGrant = {
+      grantedAt: new Date(),
+      grantedByUserId: actor._id,
+      grantedByEmail: actor.email,
+      note: normalizedNote || undefined,
+      durationDays: complimentaryDurationDays || undefined,
+      planKey: normalizedPlan ? String(plan).toUpperCase() : undefined
+    };
+
+    await targetUser.save();
+    await logProductOwnerAction({
+      actor,
+      actionType: "GRANT_COMPLIMENTARY_PRO",
+      targetUser,
+      previousSubscription,
+      nextSubscription: buildSubscriptionSnapshot(targetUser),
+      note: normalizedNote,
+      metadata: {
+        planKey: normalizedPlan ? String(plan).toUpperCase() : undefined,
+        durationDays: complimentaryDurationDays || undefined,
+        startsFromCurrentExpiry: Boolean(startsFromCurrentExpiry)
+      }
+    });
+
+    const targetLibrary = await Library.findById(targetUser.libraryId);
+    res.json({
+      msg: "Complimentary Pro access granted successfully",
+      subscription: buildSubscriptionResponse(targetUser, targetLibrary),
+      targetUser: {
+        id: targetUser._id,
+        email: targetUser.email,
+        libraryId: targetUser.libraryId
+      }
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+};
+
+exports.getProductOwnerAnalytics = async (req, res) => {
+  try {
+    await getAuthorizedProductOwner(req);
+
+    const { year } = req.query || {};
+    const { year: selectedYear, start, end } = buildYearRange(year);
+
+    const [
+      annualRows,
+      totalRows,
+      monthlyRows,
+      paymentSummaryRows,
+      owners,
+      libraries,
+      actionLogs
+    ] = await Promise.all([
+      AppSubscriptionPayment.aggregate([
+        {
+          $match: {
+            status: "PAID",
+            paidAt: { $gte: start, $lt: end }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            income: { $sum: "$amount" },
+            subscriptionsPurchased: { $sum: 1 }
+          }
+        }
+      ]),
+      AppSubscriptionPayment.aggregate([
+        {
+          $match: {
+            status: "PAID"
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            income: { $sum: "$amount" },
+            subscriptionsPurchased: { $sum: 1 }
+          }
+        }
+      ]),
+      AppSubscriptionPayment.aggregate([
+        {
+          $match: {
+            status: "PAID",
+            paidAt: { $gte: start, $lt: end }
+          }
+        },
+        {
+          $group: {
+            _id: { $month: "$paidAt" },
+            income: { $sum: "$amount" },
+            subscriptionsPurchased: { $sum: 1 }
+          }
+        }
+      ]),
+      AppSubscriptionPayment.aggregate([
+        {
+          $match: {
+            status: "PAID"
+          }
+        },
+        {
+          $group: {
+            _id: "$userId",
+            totalPaidAmount: { $sum: "$amount" },
+            subscriptionsPurchased: { $sum: 1 },
+            lastPaidAt: { $max: "$paidAt" }
+          }
+        }
+      ]),
+      User.find({})
+        .select("name email role libraryId subscriptionPlan subscriptionStatus subscriptionGrantType subscriptionRenewsAt createdAt")
+        .sort({ createdAt: -1 })
+        .lean(),
+      Library.find({})
+        .select("name ownerName phone address seatCount")
+        .lean(),
+      ProductOwnerActionLog.find({})
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean()
+    ]);
+
+    const annualSummary = annualRows[0] || {};
+    const totalSummary = totalRows[0] || {};
+    const monthlyMap = new Map(monthlyRows.map((row) => [Number(row._id || 0), row]));
+    const monthlyTrend = Array.from({ length: 12 }, (_, index) => {
+      const month = index + 1;
+      const row = monthlyMap.get(month);
+      return {
+        month,
+        income: row?.income || 0,
+        subscriptionsPurchased: row?.subscriptionsPurchased || 0
+      };
+    });
+
+    const paymentSummaryMap = new Map(
+      paymentSummaryRows.map((row) => [
+        String(row._id),
+        {
+          totalPaidAmount: row.totalPaidAmount || 0,
+          subscriptionsPurchased: row.subscriptionsPurchased || 0,
+          lastPaidAt: row.lastPaidAt || null
+        }
+      ])
+    );
+
+    const libraryMap = new Map(libraries.map((library) => [String(library._id), library]));
+    const libraryOwners = owners
+      .filter((owner) => String(owner.role || "ADMIN").toUpperCase() === "ADMIN")
+      .map((owner) => {
+        const paymentSummary = paymentSummaryMap.get(String(owner._id)) || {
+          totalPaidAmount: 0,
+          subscriptionsPurchased: 0,
+          lastPaidAt: null
+        };
+        const library = libraryMap.get(String(owner.libraryId)) || null;
+
+        return {
+          id: owner._id,
+          name: owner.name,
+          email: owner.email,
+          role: owner.role,
+          createdAt: owner.createdAt,
+          subscriptionPlan: owner.subscriptionPlan,
+          subscriptionStatus: owner.subscriptionStatus,
+          subscriptionGrantType: owner.subscriptionGrantType || "NONE",
+          subscriptionRenewsAt: owner.subscriptionRenewsAt,
+          library: library
+            ? {
+                id: owner.libraryId,
+                name: library.name,
+                ownerName: library.ownerName,
+                phone: library.phone,
+                address: library.address || "",
+                seatCount: library.seatCount || 0
+              }
+            : null,
+          totalPaidAmount: paymentSummary.totalPaidAmount,
+          subscriptionsPurchased: paymentSummary.subscriptionsPurchased,
+          lastPaidAt: paymentSummary.lastPaidAt
+        };
+      });
+
+    const activeProOwners = libraryOwners.filter(
+      (owner) => owner.subscriptionPlan === "PRO" && owner.subscriptionStatus === "ACTIVE"
+    ).length;
+    const complimentaryOwners = libraryOwners.filter(
+      (owner) => owner.subscriptionGrantType === "COMPLIMENTARY" && owner.subscriptionStatus === "ACTIVE"
+    ).length;
+    const canceledOwners = libraryOwners.filter((owner) => owner.subscriptionStatus === "CANCELED").length;
+    const expiredOwners = libraryOwners.filter((owner) => owner.subscriptionStatus === "EXPIRED").length;
+
+    res.json({
+      summary: {
+        year: selectedYear,
+        annualIncome: annualSummary.income || 0,
+        annualSubscriptionsPurchased: annualSummary.subscriptionsPurchased || 0,
+        totalIncome: totalSummary.income || 0,
+        totalSubscriptionsPurchased: totalSummary.subscriptionsPurchased || 0,
+        totalLibraryOwners: libraryOwners.length,
+        activeProOwners,
+        complimentaryOwners,
+        canceledOwners,
+        expiredOwners
+      },
+      monthlyTrend,
+      owners: libraryOwners,
+      actionLogs: actionLogs.map((log) => ({
+        id: log._id,
+        actionType: log.actionType,
+        actorEmail: log.actorEmail,
+        targetEmail: log.targetEmail,
+        createdAt: log.createdAt,
+        note: log.note || "",
+        previousSubscriptionPlan: log.previousSubscriptionPlan || "",
+        previousSubscriptionStatus: log.previousSubscriptionStatus || "",
+        previousSubscriptionGrantType: log.previousSubscriptionGrantType || "",
+        nextSubscriptionPlan: log.nextSubscriptionPlan || "",
+        nextSubscriptionStatus: log.nextSubscriptionStatus || "",
+        nextSubscriptionGrantType: log.nextSubscriptionGrantType || "",
+        previousSubscriptionRenewsAt: log.previousSubscriptionRenewsAt || null,
+        nextSubscriptionRenewsAt: log.nextSubscriptionRenewsAt || null,
+        metadata: log.metadata || {}
+      }))
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+};
+
+exports.cancelSubscriptionAsProductOwner = async (req, res) => {
+  try {
+    const actor = await getAuthorizedProductOwner(req);
+
+    const { userId, note } = req.body || {};
+    if (!userId) {
+      return res.status(400).json({ msg: "userId is required" });
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ msg: "Target user not found" });
+    }
+
+    const previousSubscription = buildSubscriptionSnapshot(targetUser);
+    const normalizedNote = typeof note === "string" ? note.trim() : "";
+    if (normalizedNote.length > 500) {
+      return res.status(400).json({ msg: "note cannot exceed 500 characters" });
+    }
+
+    targetUser.subscriptionPlan = "FREE";
+    targetUser.subscriptionStatus = "CANCELED";
+    targetUser.subscriptionGrantType = "NONE";
+    targetUser.subscriptionRenewsAt = new Date();
+    targetUser.complimentaryGrant = undefined;
+
+    await targetUser.save();
+    await logProductOwnerAction({
+      actor,
+      actionType: "CANCEL_SUBSCRIPTION",
+      targetUser,
+      previousSubscription,
+      nextSubscription: buildSubscriptionSnapshot(targetUser),
+      note: normalizedNote || "Manual product owner cancellation"
+    });
+
+    res.json({
+      msg: "Subscription canceled successfully",
+      targetUser: {
+        id: targetUser._id,
+        email: targetUser.email,
+        subscriptionPlan: targetUser.subscriptionPlan,
+        subscriptionStatus: targetUser.subscriptionStatus,
+        subscriptionGrantType: targetUser.subscriptionGrantType,
+        subscriptionRenewsAt: targetUser.subscriptionRenewsAt
+      }
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 };
 
@@ -752,9 +1203,7 @@ exports.verifySubscriptionPayment = async (req, res) => {
     paymentRecord.paidAt = new Date();
     paymentRecord.renewsAt = renewsAt;
 
-    user.subscriptionPlan = "PRO";
-    user.subscriptionStatus = "ACTIVE";
-    user.subscriptionRenewsAt = renewsAt;
+    activatePaidPro(user, renewsAt);
 
     await paymentRecord.save();
     await user.save();
@@ -768,7 +1217,8 @@ exports.verifySubscriptionPayment = async (req, res) => {
 exports.getBillingHistory = async (req, res) => {
   try {
     const payments = await AppSubscriptionPayment.find({
-      libraryId: req.user.libraryId
+      libraryId: req.user.libraryId,
+      status: "PAID"
     })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -782,7 +1232,7 @@ exports.getBillingHistory = async (req, res) => {
       method: "RAZORPAY",
       status: payment.status,
       paymentDate: payment.paidAt || payment.createdAt,
-      note: payment.status === "PAID" ? "Brainbyte Pro subscription" : "Checkout created",
+      note: "Brainbyte Pro subscription",
       reference: payment.razorpayPaymentId || payment.razorpayOrderId
     }));
 

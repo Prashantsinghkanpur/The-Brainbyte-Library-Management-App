@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { getErrorMessage } from "../lib/format";
+import { isProductOwner } from "../lib/productOwner";
 import { hasProAccess, shouldShowLocalProBypass } from "../lib/subscription";
 import { LogoButton, LogoPopup } from "./LogoPreview";
 
@@ -62,13 +63,20 @@ function NavIcon({ name, className = "h-4 w-4" }) {
         <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
         <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-.4-1.1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 .4 1.1 1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.24.38.39.82.39 1.29 0 .47-.15.91-.39 1.29Z" />
       </svg>
+    ),
+    shield: (
+      <svg {...iconProps}>
+        <path d="M12 3l7 3v5c0 4.5-2.8 7.9-7 10-4.2-2.1-7-5.5-7-10V6l7-3z" />
+        <path d="M9 12h6" />
+        <path d="M12 9v6" />
+      </svg>
     )
   };
 
   return icons[name] || icons.home;
 }
 
-const navItems = [
+const baseNavItems = [
   { path: "/dashboard", label: "Home", short: "Home", icon: "home" },
   { path: "/students", label: "Students", short: "Students", icon: "students" },
   { path: "/seats", label: "Seats", short: "Seats", icon: "seats" },
@@ -86,6 +94,10 @@ export default function AppShell() {
   const [showLogoPopup, setShowLogoPopup] = useState(false);
   const proAccessEnabled = hasProAccess(user);
   const localProBypass = shouldShowLocalProBypass();
+  const showProductOwnerNav = isProductOwner(user);
+  const navItems = showProductOwnerNav
+    ? [...baseNavItems, { path: "/admin", label: "Owner Admin", short: "Admin", icon: "shield" }]
+    : baseNavItems;
 
   useEffect(() => {
     const loadLibraries = async () => {
@@ -154,7 +166,8 @@ export default function AppShell() {
               key={item.path}
               to={item.path}
               className={({ isActive }) => {
-                const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
+                const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
+                const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
 
                 if (isRenewOnly) {
                   return "flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition opacity-40 text-slate-400 cursor-not-allowed";
@@ -165,7 +178,8 @@ export default function AppShell() {
                 }`;
               }}
               onClick={(e) => {
-                const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
+                const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
+                const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
                 if (isRenewOnly) {
                   e.preventDefault();
                 }
@@ -238,13 +252,17 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 gap-1 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:px-2 lg:hidden">
+      <nav
+        className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid gap-1 border-t border-slate-200 bg-white/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-400/25 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:px-2 lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
+      >
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) => {
-              const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
+              const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
+              const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
 
               if (isRenewOnly) {
                 return "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] opacity-40 text-slate-400 cursor-not-allowed";
@@ -255,7 +273,8 @@ export default function AppShell() {
               }`;
             }}
             onClick={(e) => {
-              const isRenewOnly = !proAccessEnabled && item.path !== "/settings";
+              const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
+              const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
               if (isRenewOnly) {
                 e.preventDefault();
               }

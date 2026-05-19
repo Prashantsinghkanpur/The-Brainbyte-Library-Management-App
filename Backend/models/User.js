@@ -37,12 +37,44 @@ const userSchema = new mongoose.Schema({
     enum: ["ACTIVE", "EXPIRED", "CANCELED"],
     default: "EXPIRED"
   },
+  subscriptionGrantType: {
+    type: String,
+    enum: ["NONE", "PAID", "COMPLIMENTARY"],
+    default: "NONE"
+  },
   subscriptionRenewsAt: {
     type: Date,
     default: () => {
       const date = new Date();
       date.setDate(date.getDate() + 30);
       return date;
+    }
+  },
+  complimentaryGrant: {
+    grantedAt: {
+      type: Date
+    },
+    grantedByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    grantedByEmail: {
+      type: String,
+      lowercase: true,
+      trim: true
+    },
+    note: {
+      type: String,
+      trim: true,
+      maxlength: 300
+    },
+    durationDays: {
+      type: Number,
+      min: 1
+    },
+    planKey: {
+      type: String,
+      trim: true
     }
   },
   libraryId: {

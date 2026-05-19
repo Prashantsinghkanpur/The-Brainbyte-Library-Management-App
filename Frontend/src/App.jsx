@@ -12,6 +12,7 @@ import SettingsPage from "./pages/SettingsPage";
 import StudentsPage from "./pages/StudentsPage";
 import QRCodePublicLanding from "./pages/QRCodePublicLanding";
 import SeatQRPublicPage from "./pages/SeatQRPublicPage";
+import ProductOwnerAnalyticsPage from "./pages/ProductOwnerAnalyticsPage";
 import { useAuth } from "./context/AuthContext";
 
 function PublicLanding() {
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin" element={<ProductOwnerAnalyticsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

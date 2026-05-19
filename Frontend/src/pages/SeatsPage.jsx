@@ -108,6 +108,7 @@ export default function SeatsPage() {
   const [editingHallId, setEditingHallId] = useState("");
   const [filters, setFilters] = useState(initialFilters);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingHallId, setDeletingHallId] = useState("");
   const [showHallForm, setShowHallForm] = useState(false);
 
   const loadGrid = async (nextFilters = filters) => {
@@ -232,17 +233,29 @@ export default function SeatsPage() {
     }, 0);
   };
 
-  const handleHallDelete = async (hallId) => {
+  const handleHallDelete = async (hall) => {
+    if (!hall?._id) return;
+
+    const confirmed = window.confirm(`Delete hall "${hall.name}"? This will only work if no students are assigned to it.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingHallId(hall._id);
     setError("");
     setSuccess("");
 
     try {
-      await apiRequest(`/seats/halls/${hallId}`, { method: "DELETE", token });
-      setSuccess("Seats deleted successfully.");
+      await apiRequest(`/seats/halls/${hall._id}`, { method: "DELETE", token });
+      setSuccess("Hall deleted successfully.");
       setShowHallForm(false);
+      resetHallForm();
       loadGrid();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
+    } finally {
+      setDeletingHallId("");
     }
   };
 
@@ -304,9 +317,19 @@ export default function SeatsPage() {
               </option>
             ))}
           </select>
-          <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:text-base" onClick={() => handleHallEdit(gridData.selectedHall)} type="button" disabled={!gridData.selectedHall}>
-            Edit Seats
-          </button>
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:text-base" onClick={() => handleHallEdit(gridData.selectedHall)} type="button" disabled={!gridData.selectedHall}>
+              Edit Seats
+            </button>
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:text-base"
+              onClick={() => handleHallDelete(gridData.selectedHall)}
+              type="button"
+              disabled={!gridData.selectedHall || deletingHallId === gridData.selectedHall?._id}
+            >
+              {deletingHallId === gridData.selectedHall?._id ? "Deleting..." : "Delete Hall"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:gap-4">
@@ -451,8 +474,13 @@ export default function SeatsPage() {
               {submitting ? "Saving..." : editingHallId ? "Update Seats" : "Add Seats"}
             </button>
             {editingHallId ? (
-              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleHallDelete(editingHallId)} type="button">
-                Delete
+              <button
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => handleHallDelete(gridData.selectedHall)}
+                type="button"
+                disabled={deletingHallId === editingHallId}
+              >
+                {deletingHallId === editingHallId ? "Deleting..." : "Delete Hall"}
               </button>
             ) : null}
           </div>

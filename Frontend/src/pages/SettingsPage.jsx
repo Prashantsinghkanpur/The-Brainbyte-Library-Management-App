@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
+import { isProductOwner } from "../lib/productOwner";
 
 const SYSTEM_MESSAGE_TEMPLATES = [
   {
@@ -96,6 +97,9 @@ const DEFAULT_SHIFT_SETTINGS = [
 const SUPPORT_WHATSAPP_NUMBER = "917800686839";
 const SUPPORT_WHATSAPP_LABEL = "+91 78006 86839";
 const SUPPORT_EMAIL = "prashantsingh2557@gmail.com";
+const SUPPORT_WHATSAPP_URL = `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`;
+const SUPPORT_EMAIL_URL = `mailto:${SUPPORT_EMAIL}`;
+const OFFICIAL_WEBSITE_URL = "https://brainbyte.app";
 const APP_VERSION_LABEL = "Version 1.0.0 (Basic)";
 const APP_MADE_BY_LABEL = "made by Prashant singh";
 
@@ -108,6 +112,16 @@ const initialProfile = {
   seatCount: "",
   address: "",
   logoDataUrl: ""
+};
+
+const initialOwnerGrantForm = {
+  email: "",
+  grantMode: "plan",
+  plan: "12_MONTHS",
+  durationDays: "",
+  renewsAt: "",
+  note: "",
+  ownerSecret: ""
 };
 
 const createQrImageUrl = (url, size = 420) =>
@@ -381,18 +395,18 @@ function SettingsRow({
   tone,
   title,
   description,
+  href,
+  target,
+  rel,
   onClick,
   danger = false,
   value,
   isLast = false,
   hideChevron = false
 }) {
-  return (
-    <button
-      className={`flex w-full items-center gap-3 px-3.5 py-3.5 text-left transition hover:bg-slate-50 min-[380px]:gap-4 min-[380px]:px-4 min-[380px]:py-4 sm:px-5 sm:py-5 dark:hover:bg-slate-800 ${isLast ? "" : "border-b border-slate-100"}`}
-      onClick={onClick}
-      type="button"
-    >
+  const sharedClassName = `flex w-full items-center gap-3 px-3.5 py-3.5 text-left transition hover:bg-slate-50 min-[380px]:gap-4 min-[380px]:px-4 min-[380px]:py-4 sm:px-5 sm:py-5 dark:hover:bg-slate-800 ${isLast ? "" : "border-b border-slate-100"}`;
+  const content = (
+    <>
       <IconBadge icon={icon} tone={tone} />
       <div className="min-w-0 flex-1">
         <strong className={`block break-words text-[0.95rem] font-extrabold leading-tight min-[380px]:text-base sm:text-[1.05rem] ${danger ? "text-red-500" : "text-slate-950"}`}>{title}</strong>
@@ -402,29 +416,49 @@ function SettingsRow({
         {value ? <span className="mr-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 min-[380px]:mr-2 min-[380px]:text-xs min-[380px]:tracking-[0.14em]">{value}</span> : null}
         {hideChevron ? null : <SettingsIcon name="chevron" />}
       </div>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a className={sharedClassName} href={href} onClick={onClick} rel={rel} target={target}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      className={sharedClassName}
+      onClick={onClick}
+      type="button"
+    >
+      {content}
     </button>
   );
 }
 
 function ModalFrame({ title, subtitle, onClose, children, panelClassName = "", overlayClassName = "", hideHeader = false }) {
   return (
-    <>
-      <button className={`fixed inset-0 z-40 cursor-default bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
-      <section className={`fixed left-1/2 top-3 z-50 grid max-h-[90vh] w-[min(96vw,760px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(95vw,760px)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:top-5 sm:rounded-[2rem] sm:p-5 relative ${panelClassName}`.trim()}>
-        {hideHeader ? null : (
-          <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
-            <div className="min-w-0">
-              <h3 className="m-0 break-words text-xl font-extrabold text-slate-950 min-[380px]:text-2xl">{title}</h3>
-              {subtitle ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
+    <div className="fixed inset-0 z-[60]">
+      <button className={`absolute inset-0 bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
+      <div className="relative z-10 flex min-h-full items-start justify-center overflow-y-auto p-3 min-[380px]:p-4 sm:p-5">
+        <section className={`relative grid max-h-[calc(100vh-1.5rem)] w-full max-w-[760px] gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:max-h-[calc(100vh-2rem)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:max-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:p-5 ${panelClassName}`.trim()}>
+          {hideHeader ? null : (
+            <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
+              <div className="min-w-0">
+                <h3 className="m-0 break-words text-xl font-extrabold text-slate-950 min-[380px]:text-2xl">{title}</h3>
+                {subtitle ? <p className="m-0 mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
+              </div>
+              <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={onClose} type="button">
+                Close
+              </button>
             </div>
-            <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={onClose} type="button">
-              Close
-            </button>
-          </div>
-        )}
-        {children}
-      </section>
-    </>
+          )}
+          {children}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -448,11 +482,15 @@ export default function SettingsPage() {
   const [qrRefreshKey, setQrRefreshKey] = useState(0);
   const [messageTemplates, setMessageTemplates] = useState(SYSTEM_MESSAGE_TEMPLATES);
   const [shiftSettings, setShiftSettings] = useState(DEFAULT_SHIFT_SETTINGS);
+  const [ownerGrantForm, setOwnerGrantForm] = useState(initialOwnerGrantForm);
+  const [grantingComplimentary, setGrantingComplimentary] = useState(false);
+  const [showOwnerGrantSecret, setShowOwnerGrantSecret] = useState(false);
 
   const subscriptionStatus = subscription?.status || user?.subscriptionStatus || "ACTIVE";
   const subscriptionPlan = subscription?.plan || user?.subscriptionPlan || "PRO";
   const renewsAt = subscription?.renewsAt || user?.subscriptionRenewsAt;
   const isProActive = subscriptionPlan === "PRO" && subscriptionStatus === "ACTIVE";
+  const showProductOwnerTools = isProductOwner(user);
   const libraryId = user?.libraryId || profile.id;
   const qrPublicUrl =
     typeof window !== "undefined" && libraryId
@@ -462,16 +500,29 @@ export default function SettingsPage() {
   const qrPrintUrl = qrPublicUrl ? `${createQrImageUrl(qrPublicUrl, 1200)}&t=${qrRefreshKey}` : "";
   const selectedPlan = APP_SUBSCRIPTION_PLANS.find((plan) => plan.key === selectedPlanKey) || APP_SUBSCRIPTION_PLANS[0];
 
+  const syncSubscriptionIntoAuth = (subscriptionData) => {
+    if (!subscriptionData) return;
+
+    patchUser((currentUser) => ({
+      ...currentUser,
+      subscriptionPlan: subscriptionData.plan,
+      subscriptionStatus: subscriptionData.status,
+      subscriptionRenewsAt: subscriptionData.renewsAt
+    }));
+  };
+
   const loadSettings = async () => {
     setError("");
 
-    try {
-      const [profileData, subscriptionData, historyData, librariesData] = await Promise.all([
-        apiRequest("/settings/profile", { token }),
-        apiRequest("/settings/subscription", { token }),
-        apiRequest("/settings/billing-history", { token }),
-        apiRequest("/auth/libraries", { token })
-      ]);
+    const [profileResult, subscriptionResult, historyResult, librariesResult] = await Promise.allSettled([
+      apiRequest("/settings/profile", { token }),
+      apiRequest("/settings/subscription", { token }),
+      apiRequest("/settings/billing-history", { token }),
+      apiRequest("/auth/libraries", { token })
+    ]);
+
+    if (profileResult.status === "fulfilled") {
+      const profileData = profileResult.value;
 
       setProfile({
         id: profileData.library.id || "",
@@ -484,18 +535,50 @@ export default function SettingsPage() {
         logoDataUrl: profileData.library.logoDataUrl || ""
       });
       setThemeMode(profileData.user.themeMode || "SYSTEM");
-      setSubscription(subscriptionData);
-      setBillingHistory(historyData.slice(0, 20));
-      setLibraries(librariesData.libraries || []);
+    }
+
+    if (subscriptionResult.status === "fulfilled") {
+      setSubscription(subscriptionResult.value);
+    }
+
+    if (historyResult.status === "fulfilled") {
+      setBillingHistory(historyResult.value.slice(0, 20));
+    } else {
+      setBillingHistory([]);
+    }
+
+    if (librariesResult.status === "fulfilled") {
+      setLibraries(librariesResult.value.libraries || []);
+    } else {
+      setLibraries([]);
+    }
+
+    if (profileResult.status === "fulfilled" || subscriptionResult.status === "fulfilled") {
       patchUser((currentUser) => ({
         ...currentUser,
-        ...profileData.user,
-        subscriptionPlan: subscriptionData.plan,
-        subscriptionStatus: subscriptionData.status,
-        subscriptionRenewsAt: subscriptionData.renewsAt
+        ...(profileResult.status === "fulfilled" ? profileResult.value.user : {}),
+        ...(subscriptionResult.status === "fulfilled"
+          ? {
+              subscriptionPlan: subscriptionResult.value.plan,
+              subscriptionStatus: subscriptionResult.value.status,
+              subscriptionRenewsAt: subscriptionResult.value.renewsAt
+            }
+          : {})
       }));
-    } catch (loadError) {
-      setError(getErrorMessage(loadError));
+    }
+
+    if (profileResult.status === "rejected" && subscriptionResult.status === "rejected") {
+      setError(getErrorMessage(subscriptionResult.reason || profileResult.reason));
+      return;
+    }
+
+    if (subscriptionResult.status === "rejected") {
+      setError("Subscription details could not be refreshed right now, but the rest of settings is available.");
+      return;
+    }
+
+    if (profileResult.status === "rejected") {
+      setError("Profile details could not be refreshed right now, but subscription controls are still available.");
     }
   };
 
@@ -723,6 +806,88 @@ export default function SettingsPage() {
     }
   };
 
+  const handleOwnerGrantChange = (event) => {
+    const { name, value } = event.target;
+    setOwnerGrantForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleOpenOwnerGrant = () => {
+    setOwnerGrantForm(initialOwnerGrantForm);
+    setShowOwnerGrantSecret(false);
+    setActiveModal("owner-grant");
+    setError("");
+    setSuccess("");
+  };
+
+  const handleOwnerGrantSubmit = async (event) => {
+    event.preventDefault();
+
+    const targetEmail = String(ownerGrantForm.email || "").trim().toLowerCase();
+    const ownerSecret = String(ownerGrantForm.ownerSecret || "").trim();
+    const note = String(ownerGrantForm.note || "").trim();
+
+    if (!targetEmail) {
+      setError("Customer email is required.");
+      return;
+    }
+
+    if (!ownerSecret) {
+      setError("Owner secret is required.");
+      return;
+    }
+
+    setGrantingComplimentary(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const payload = {
+        email: targetEmail,
+        note,
+        startsFromCurrentExpiry: true
+      };
+
+      if (ownerGrantForm.grantMode === "days") {
+        payload.durationDays = Number(ownerGrantForm.durationDays || 0);
+      } else if (ownerGrantForm.grantMode === "date") {
+        if (!ownerGrantForm.renewsAt) {
+          throw new Error("Exact expiry date is required.");
+        }
+
+        const parsedRenewsAt = new Date(ownerGrantForm.renewsAt);
+        if (Number.isNaN(parsedRenewsAt.getTime())) {
+          throw new Error("Enter a valid expiry date.");
+        }
+
+        payload.renewsAt = parsedRenewsAt.toISOString();
+      } else {
+        payload.plan = ownerGrantForm.plan;
+      }
+
+      const data = await apiRequest("/settings/subscription/grant", {
+        method: "POST",
+        token,
+        headers: {
+          "x-product-owner-secret": ownerSecret
+        },
+        body: payload
+      });
+
+      if (String(user?.email || "").trim().toLowerCase() === targetEmail) {
+        setSubscription(data.subscription);
+        syncSubscriptionIntoAuth(data.subscription);
+      }
+
+      setSuccess(`Complimentary Pro granted to ${data.targetUser?.email || targetEmail}.`);
+      setActiveModal("");
+      setOwnerGrantForm(initialOwnerGrantForm);
+    } catch (grantError) {
+      setError(getErrorMessage(grantError));
+    } finally {
+      setGrantingComplimentary(false);
+    }
+  };
+
   const handleSubscriptionAction = async (action) => {
     setSubscriptionAction(action);
     setError("");
@@ -737,6 +902,10 @@ export default function SettingsPage() {
           token,
           body: { plan: selectedPlanKey }
         });
+
+        if (!window.Razorpay || !order?.keyId || !order?.orderId) {
+          throw new Error("Payment checkout is not configured right now. Please try again shortly or contact support.");
+        }
 
         const paymentResult = await new Promise((resolve, reject) => {
           const checkout = new window.Razorpay({
@@ -759,7 +928,7 @@ export default function SettingsPage() {
             },
             handler: resolve,
             modal: {
-              ondismiss: () => reject(new Error("Payment was cancelled"))
+              ondismiss: () => reject(new Error("Payment checkout was closed before completion."))
             }
           });
 
@@ -777,12 +946,7 @@ export default function SettingsPage() {
         });
 
         setSubscription(data);
-        patchUser((currentUser) => ({
-          ...currentUser,
-          subscriptionPlan: data.plan,
-          subscriptionStatus: data.status,
-          subscriptionRenewsAt: data.renewsAt
-        }));
+        syncSubscriptionIntoAuth(data);
 
         setSuccess(`Payment successful. Pro membership renewed on the ${selectedPlan.label} plan.`);
         await loadSettings();
@@ -796,12 +960,7 @@ export default function SettingsPage() {
       });
 
       setSubscription(data);
-      patchUser((currentUser) => ({
-        ...currentUser,
-        subscriptionPlan: data.plan,
-        subscriptionStatus: data.status,
-        subscriptionRenewsAt: data.renewsAt
-      }));
+      syncSubscriptionIntoAuth(data);
 
       setSuccess(
         action === "RESTORE"
@@ -864,18 +1023,6 @@ export default function SettingsPage() {
     } catch {
       setError("Could not share the QR access link.");
     }
-  };
-
-  const handleOpenQrPreview = () => {
-    if (!qrPublicUrl) return;
-    window.open(qrPublicUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const handleOpenQrDownload = () => {
-    if (!qrPrintUrl) return;
-    window.open(qrPrintUrl, "_blank", "noopener,noreferrer");
-    setSuccess("High-resolution QR opened in a new tab.");
-    setError("");
   };
 
   const handlePlaceholderOpen = (modalKey) => {
@@ -979,6 +1126,22 @@ export default function SettingsPage() {
         </SettingsGroup>
       </div>
 
+      {showProductOwnerTools ? (
+        <div className="grid gap-4">
+          <SectionLabel>Product Owner</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow
+              icon="shield"
+              tone="amber"
+              title="Grant Complimentary Pro"
+              description="Owner-only tool to unlock Pro without checkout"
+              onClick={handleOpenOwnerGrant}
+              isLast
+            />
+          </SettingsGroup>
+        </div>
+      ) : null}
+
       <div className="grid gap-4">
         <SectionLabel>Appearance</SectionLabel>
         <SettingsGroup>
@@ -1029,7 +1192,7 @@ export default function SettingsPage() {
             tone="red"
             title="Sign Out"
             description="Log out from this device"
-            onClick={handleLogout}
+            onClick={() => setActiveModal("logout")}
             danger
             isLast
           />
@@ -1057,9 +1220,10 @@ export default function SettingsPage() {
             icon="globe"
             tone="teal"
             title="Official Website"
-            description=""
-            onClick={() => {}}
-            hideChevron
+            description="brainbyte.app"
+            href={OFFICIAL_WEBSITE_URL}
+            rel="noreferrer"
+            target="_blank"
             isLast
           />
         </SettingsGroup>
@@ -1101,16 +1265,16 @@ export default function SettingsPage() {
             tone="green"
             title="Contact on WhatsApp"
             description={SUPPORT_WHATSAPP_LABEL}
-            onClick={() => window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`, "_blank", "noopener,noreferrer")}
+            href={SUPPORT_WHATSAPP_URL}
+            rel="noreferrer"
+            target="_blank"
           />
           <SettingsRow
             icon="mail"
             tone="blue"
             title="Email Support"
             description={SUPPORT_EMAIL}
-            onClick={() => {
-              window.location.href = `mailto:${SUPPORT_EMAIL}`;
-            }}
+            href={SUPPORT_EMAIL_URL}
           />
           <SettingsRow
             icon="star"
@@ -1269,7 +1433,7 @@ export default function SettingsPage() {
           subtitle="View plan, renew dates, and subscription controls."
           onClose={() => setActiveModal("")}
           hideHeader
-          panelClassName="overflow-hidden border-slate-800 bg-slate-950 p-0 text-white shadow-[0_35px_120px_rgba(2,6,23,0.72)]"
+          panelClassName="overflow-x-hidden border-slate-800 bg-slate-950 p-0 text-white shadow-[0_35px_120px_rgba(2,6,23,0.72)]"
           overlayClassName="bg-slate-950/75 backdrop-blur-sm"
         >
           <div className="relative overflow-hidden">
@@ -1397,24 +1561,22 @@ export default function SettingsPage() {
                 <p className="m-0 mt-2 text-center text-sm text-slate-300 min-[380px]:text-base">Questions about Pro plans? Chat with us directly.</p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button
+                  <a
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-3 font-extrabold text-white transition hover:-translate-y-0.5"
-                    onClick={() => window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`, "_blank", "noopener,noreferrer")}
-                    type="button"
+                    href={SUPPORT_WHATSAPP_URL}
+                    rel="noreferrer"
+                    target="_blank"
                   >
                     <SettingsIcon name="whatsapp" />
                     WhatsApp
-                  </button>
-                  <button
+                  </a>
+                  <a
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-sky-500 px-5 py-3 font-extrabold text-white transition hover:-translate-y-0.5"
-                    onClick={() => {
-                      window.location.href = `mailto:${SUPPORT_EMAIL}`;
-                    }}
-                    type="button"
+                    href={SUPPORT_EMAIL_URL}
                   >
                     <SettingsIcon name="mail" />
                     Email
-                  </button>
+                  </a>
                 </div>
 
                 <div className="mt-4 grid gap-2 text-center text-sm text-slate-400">
@@ -1439,6 +1601,13 @@ export default function SettingsPage() {
                   type="button"
                 >
                   {subscriptionAction === "RESTORE" ? "Syncing..." : "Restore Purchase"}
+                </button>
+                <button
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/10 px-6 py-3 font-extrabold text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-300/15"
+                  onClick={() => setActiveModal("billing")}
+                  type="button"
+                >
+                  View Billing History
                 </button>
                 <p className="m-0 text-center text-xs font-semibold tracking-[0.08em] text-slate-400 min-[380px]:text-sm">
                   Secure payment flow. Your current app functionality remains unchanged.
@@ -1496,9 +1665,9 @@ export default function SettingsPage() {
               <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="mx-auto w-full max-w-md rounded-[2rem] border border-teal-100 bg-white p-5 text-center shadow-lg shadow-slate-300/15">
                   <img className="mx-auto w-full max-w-[18rem] rounded-[1.75rem] border border-slate-100 bg-white p-3" src={qrImageUrl} alt={`${profile.libraryName || "Library"} vacant seats QR code`} />
-                  <button className="mt-4 text-sm font-extrabold uppercase tracking-[0.18em] text-teal-700 underline underline-offset-4" onClick={handleOpenQrPreview} type="button">
+                  <a className="mt-4 inline-flex text-sm font-extrabold uppercase tracking-[0.18em] text-teal-700 underline underline-offset-4" href={qrPublicUrl} rel="noreferrer" target="_blank">
                     Preview Page
-                  </button>
+                  </a>
                 </div>
               </div>
 
@@ -1517,9 +1686,18 @@ export default function SettingsPage() {
                 <button className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800" onClick={handleShareQr} type="button">
                   Share QR
                 </button>
-                <button className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800" onClick={handleOpenQrDownload} type="button">
+                <a
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  href={qrPrintUrl}
+                  onClick={() => {
+                    setSuccess("High-resolution QR opened in a new tab.");
+                    setError("");
+                  }}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   Open Print QR
-                </button>
+                </a>
               </div>
             </div>
           ) : (
@@ -1675,6 +1853,138 @@ export default function SettingsPage() {
         </ModalFrame>
       ) : null}
 
+      {activeModal === "owner-grant" ? (
+        <ModalFrame title="Grant Complimentary Pro" subtitle="Visible only to configured product owner emails." onClose={() => setActiveModal("")}>
+          <form className="grid gap-4" onSubmit={handleOwnerGrantSubmit}>
+            <div className="rounded-[1.5rem] border border-amber-100 bg-amber-50 p-4 text-sm font-semibold leading-7 text-amber-800 min-[380px]:text-base">
+              This tool bypasses checkout and grants Pro access directly. Use it only for trusted complimentary access cases.
+            </div>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Customer Email</span>
+              <input
+                className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                name="email"
+                onChange={handleOwnerGrantChange}
+                placeholder="customer@example.com"
+                type="email"
+                value={ownerGrantForm.email}
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Grant Method</span>
+              <select
+                className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                name="grantMode"
+                onChange={handleOwnerGrantChange}
+                value={ownerGrantForm.grantMode}
+              >
+                <option value="plan">Use subscription plan</option>
+                <option value="days">Use custom days</option>
+                <option value="date">Set exact expiry date</option>
+              </select>
+            </label>
+
+            {ownerGrantForm.grantMode === "plan" ? (
+              <label className="grid gap-2">
+                <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Plan</span>
+                <select
+                  className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                  name="plan"
+                  onChange={handleOwnerGrantChange}
+                  value={ownerGrantForm.plan}
+                >
+                  {APP_SUBSCRIPTION_PLANS.map((plan) => (
+                    <option key={plan.key} value={plan.key}>
+                      {plan.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {ownerGrantForm.grantMode === "days" ? (
+              <label className="grid gap-2">
+                <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Custom Days</span>
+                <input
+                  className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                  min="1"
+                  name="durationDays"
+                  onChange={handleOwnerGrantChange}
+                  placeholder="90"
+                  type="number"
+                  value={ownerGrantForm.durationDays}
+                />
+              </label>
+            ) : null}
+
+            {ownerGrantForm.grantMode === "date" ? (
+              <label className="grid gap-2">
+                <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Exact Expiry Date</span>
+                <input
+                  className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                  name="renewsAt"
+                  onChange={handleOwnerGrantChange}
+                  type="datetime-local"
+                  value={ownerGrantForm.renewsAt}
+                />
+              </label>
+            ) : null}
+
+            <label className="grid gap-2">
+              <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Reason / Note</span>
+              <textarea
+                className="min-h-28 w-full rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                maxLength="300"
+                name="note"
+                onChange={handleOwnerGrantChange}
+                placeholder="Why are you granting complimentary access?"
+                value={ownerGrantForm.note}
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">Owner Secret</span>
+              <div className="relative">
+                <input
+                  className="min-h-12 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 pr-24 font-semibold text-slate-800 outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                  name="ownerSecret"
+                  onChange={handleOwnerGrantChange}
+                  placeholder="Enter owner secret before grant"
+                  type={showOwnerGrantSecret ? "text" : "password"}
+                  value={ownerGrantForm.ownerSecret}
+                />
+                <button
+                  className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => setShowOwnerGrantSecret((current) => !current)}
+                  type="button"
+                >
+                  {showOwnerGrantSecret ? "Hide" : "Show"}
+                </button>
+              </div>
+            </label>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"
+                onClick={() => setActiveModal("")}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-amber-600 px-5 py-3 font-extrabold text-white shadow-lg shadow-amber-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={grantingComplimentary}
+                type="submit"
+              >
+                {grantingComplimentary ? "Granting..." : "Grant Complimentary Pro"}
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      ) : null}
+
       {activeModal === "delete" ? (
         <ModalFrame title="Delete Account" subtitle="This action permanently removes your data." onClose={() => setActiveModal("")}>
           <div className="grid gap-4">
@@ -1684,6 +1994,32 @@ export default function SettingsPage() {
             <button className="inline-flex min-h-12 items-center justify-center rounded-full bg-red-500 px-5 py-3 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5" onClick={() => handlePlaceholderAction("Delete account is not available yet in the current backend.")} type="button">
               Delete Account Permanently
             </button>
+          </div>
+        </ModalFrame>
+      ) : null}
+
+      {activeModal === "logout" ? (
+        <ModalFrame title="Confirm Sign Out" subtitle="Are you sure you want to log out from this device?" onClose={() => setActiveModal("")}>
+          <div className="grid gap-4">
+            <div className="rounded-[1.5rem] border border-amber-100 bg-amber-50 p-5 text-base font-semibold leading-8 text-amber-700">
+              You will need to log in again to access your library dashboard on this device.
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50"
+                onClick={() => setActiveModal("")}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-red-500 px-5 py-3 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5"
+                onClick={handleLogout}
+                type="button"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
           </div>
         </ModalFrame>
       ) : null}
