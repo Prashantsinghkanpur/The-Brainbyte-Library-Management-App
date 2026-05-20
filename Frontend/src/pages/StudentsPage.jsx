@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
+import { withMinimumDelay } from "../lib/async";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
 import { getStudentMessageActions } from "../lib/messages";
 
@@ -311,6 +312,7 @@ function StudentActionButton({ as: Component = "button", tone = "neutral", icon,
 
 export default function StudentsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { token } = useAuth();
   const { error, success, setError, setSuccess } = useTimedAlerts();
   const [students, setStudents] = useState([]);
@@ -330,6 +332,9 @@ export default function StudentsPage() {
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
   const [copiedId, setCopiedId] = useState("");
   const [showStudentForm, setShowStudentForm] = useState(false);
+  const routeSearchParams = new URLSearchParams(location.search);
+  const requestedStudentId = location.state?.studentId || routeSearchParams.get("studentId") || "";
+  const shouldOpenNewStudentForm = routeSearchParams.get("new") === "1";
 
   const loadData = async (activeFilters = filters) => {
     setLoading(true);
@@ -341,10 +346,10 @@ export default function StudentsPage() {
         if (value) searchParams.set(key, value);
       });
 
-      const [studentsData, hallsData] = await Promise.all([
+      const [studentsData, hallsData] = await withMinimumDelay(Promise.all([
         apiRequest(`/students${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
         apiRequest("/seats/halls", { token })
-      ]);
+      ]), 340);
 
       setStudents(studentsData);
       setHalls(hallsData);
@@ -363,7 +368,10 @@ export default function StudentsPage() {
       const searchParams = new URLSearchParams();
       if (search) searchParams.set("search", search);
 
-      const data = await apiRequest(`/students/former-members${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token });
+      const data = await withMinimumDelay(
+        apiRequest(`/students/former-members${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
+        280
+      );
       setFormerMembers(data);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
@@ -376,10 +384,15 @@ export default function StudentsPage() {
     loadData(initialFilters);
     loadFormerMembers("");
 
-    if (new URLSearchParams(window.location.search).get("new") === "1") {
+    if (shouldOpenNewStudentForm) {
       setShowStudentForm(true);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!requestedStudentId) return;
+    handleViewById(requestedStudentId, { clearRequest: true });
+  }, [requestedStudentId, token]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -441,6 +454,21 @@ export default function StudentsPage() {
     setShowStudentForm(false);
   };
 
+  const clearStudentRouteRequest = () => {
+    if (!requestedStudentId) return;
+
+    routeSearchParams.delete("studentId");
+    const nextSearch = routeSearchParams.toString();
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : ""
+      },
+      { replace: true, state: null }
+    );
+  };
+
   const handleView = async (student) => {
     setLoadingStudentDetail(true);
     setError("");
@@ -448,6 +476,26 @@ export default function StudentsPage() {
     try {
       const studentDetail = await apiRequest(`/students/${student._id}`, { token });
       setViewingStudent(studentDetail);
+    } catch (viewError) {
+      setError(getErrorMessage(viewError));
+    } finally {
+      setLoadingStudentDetail(false);
+    }
+  };
+
+  const handleViewById = async (studentId, { clearRequest = false } = {}) => {
+    if (!studentId) return;
+
+    setLoadingStudentDetail(true);
+    setError("");
+
+    try {
+      const studentDetail = await apiRequest(`/students/${studentId}`, { token });
+      setViewingStudent(studentDetail);
+
+      if (clearRequest) {
+        clearStudentRouteRequest();
+      }
     } catch (viewError) {
       setError(getErrorMessage(viewError));
     } finally {

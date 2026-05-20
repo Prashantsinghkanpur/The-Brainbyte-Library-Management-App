@@ -1,4 +1,4 @@
-const CACHE_NAME = "brainbyte-library-v2";
+const CACHE_NAME = "brainbyte-library-v3";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

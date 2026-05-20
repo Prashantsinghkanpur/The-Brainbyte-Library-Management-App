@@ -1302,7 +1302,7 @@ exports.getBillingHistory = async (req, res) => {
   }
 };
 
-// Public: QR seat snapshot + full seat grid (public / no auth)
+// Public: QR seat snapshot with vacant-seat grid only (public / no auth)
 exports.getPublicSeatSnapshot = async (req, res) => {
   try {
     const { libraryId } = req.params;
@@ -1317,9 +1317,7 @@ exports.getPublicSeatSnapshot = async (req, res) => {
     }
 
     // Fetch halls + students publicly (no auth)
-    // This matches the same seat grid behavior as /api/seats/grid:
-    // - pick Main Hall (or first hall)
-    // - build per-seat tiles up to hall.totalSeats
+    // Only vacant seats are exposed through this QR endpoint.
     const Hall = require("../models/Hall");
     const Student = require("../models/student");
 
@@ -1392,28 +1390,19 @@ exports.getPublicSeatSnapshot = async (req, res) => {
       return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     };
 
-    const seats = [];
+    const vacantSeats = [];
 
     for (let seatNumber = 1; seatNumber <= selectedHall.totalSeats; seatNumber += 1) {
       const student = studentMap.get(seatNumber) || null;
-      const occupancyStatus = student ? "OCCUPIED" : "VACANT";
-      const duesState = student ? getDuesState(student) : null;
+      if (student) {
+        continue;
+      }
 
-      seats.push({
+      vacantSeats.push({
         seatNumber,
         hallName: selectedHall.name,
-        occupancyStatus,
-        student: student
-          ? {
-              id: student._id,
-              memberId: student.memberId,
-              name: student.name,
-              shift: student.shift,
-              status: student.status,
-              duesState,
-              daysRemaining: getDaysRemaining(student.paidTill)
-            }
-          : null
+        occupancyStatus: "VACANT",
+        student: null
       });
     }
 
@@ -1427,7 +1416,7 @@ exports.getPublicSeatSnapshot = async (req, res) => {
         },
         halls,
         selectedHall,
-        seats
+        seats: vacantSeats
       })
     );
   } catch (err) {

@@ -48,10 +48,9 @@ export default function SeatQRPublicPage() {
   }, [apiPath]);
 
   const summary = payload?.seatGrid?.summary;
-  const seats = payload?.seatGrid?.seats || [];
-  const vacantSeats = seats.filter((seat) => !seat.student);
-
-  const seatCount = summary?.totalSeats ?? payload?.seatCount ?? 0;
+  const vacantSeats = (payload?.seatGrid?.seats || []).filter(
+    (seat) => seat?.occupancyStatus === "VACANT" && !seat.student
+  );
   const vacant = summary?.vacantSeats ?? vacantSeats.length;
 
   return (
@@ -63,25 +62,30 @@ export default function SeatQRPublicPage() {
         </header>
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">Loading...</div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <div className="grid gap-3">
+              <div className="h-6 w-40 rounded-full bg-slate-100/90" />
+              <div className="h-4 w-60 rounded-full bg-slate-100/75" />
+              <div className="grid grid-cols-2 gap-3 pt-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <div key={index} className="h-36 rounded-[1.35rem] bg-slate-100/80" />
+                ))}
+              </div>
+            </div>
+          </div>
         ) : error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 font-bold text-red-700">{error}</div>
         ) : (
           <section className="grid gap-3 rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-xl shadow-slate-300/30 min-[380px]:p-4 sm:gap-4 sm:p-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3 min-[380px]:rounded-3xl min-[380px]:p-4">
-                <div className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Seats</div>
-                <div className="mt-2 text-xl font-black text-slate-900 min-[380px]:text-2xl">{seatCount}</div>
-              </div>
-              <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3 min-[380px]:rounded-3xl min-[380px]:p-4">
-                <div className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Vacant</div>
-                <div className="mt-2 text-xl font-black text-teal-700 min-[380px]:text-2xl">{vacant}</div>
-              </div>
+            <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 p-3 min-[380px]:rounded-3xl min-[380px]:p-4">
+              <div className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Vacant Seats</div>
+              <div className="mt-2 text-xl font-black text-teal-700 min-[380px]:text-2xl">{vacant}</div>
+              <p className="m-0 mt-1 text-xs font-bold text-slate-500 min-[380px]:text-sm">Only open seats are shown here.</p>
             </div>
 
             <div className="rounded-[1.3rem] border border-slate-200 bg-white p-3 min-[380px]:rounded-2xl min-[380px]:p-4">
               <div className="text-sm font-extrabold text-slate-700">Live vacant seat list</div>
-              <p className="m-0 mt-1 text-sm text-slate-500">Only open seats are shown in this public view.</p>
+              <p className="m-0 mt-1 text-sm text-slate-500">This public QR page hides all filled seats and student details.</p>
 
               {vacantSeats.length ? (
                 <div className="mt-4 grid grid-cols-2 gap-2 min-[380px]:gap-3 lg:grid-cols-3">

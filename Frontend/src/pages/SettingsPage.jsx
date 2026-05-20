@@ -442,9 +442,9 @@ function SettingsRow({
 function ModalFrame({ title, subtitle, onClose, children, panelClassName = "", overlayClassName = "", hideHeader = false }) {
   return (
     <div className="fixed inset-0 z-[60]">
-      <button className={`absolute inset-0 bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
+      <button className={`app-modal-overlay absolute inset-0 bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
       <div className="relative z-10 flex min-h-full items-start justify-center overflow-y-auto p-3 min-[380px]:p-4 sm:p-5">
-        <section className={`relative grid max-h-[calc(100vh-1.5rem)] w-full max-w-[760px] gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:max-h-[calc(100vh-2rem)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:max-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:p-5 ${panelClassName}`.trim()}>
+        <section className={`app-modal-panel relative grid max-h-[calc(100vh-1.5rem)] w-full max-w-[760px] gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:max-h-[calc(100vh-2rem)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:max-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:p-5 ${panelClassName}`.trim()}>
           {hideHeader ? null : (
             <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
               <div className="min-w-0">

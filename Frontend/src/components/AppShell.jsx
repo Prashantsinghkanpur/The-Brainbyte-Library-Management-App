@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
@@ -87,11 +87,13 @@ const baseNavItems = [
 
 export default function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { token, user, logout, setSession } = useAuth();
   const [libraries, setLibraries] = useState([]);
   const [switchingLibrary, setSwitchingLibrary] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [showLogoPopup, setShowLogoPopup] = useState(false);
+  const [isRouteTransitioning, setIsRouteTransitioning] = useState(false);
   const proAccessEnabled = hasProAccess(user);
   const localProBypass = shouldShowLocalProBypass();
   const showProductOwnerNav = isProductOwner(user);
@@ -113,6 +115,15 @@ export default function AppShell() {
       loadLibraries();
     }
   }, [token, user?.libraryId]);
+
+  useEffect(() => {
+    setIsRouteTransitioning(true);
+    const timeoutId = window.setTimeout(() => {
+      setIsRouteTransitioning(false);
+    }, 240);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -145,8 +156,13 @@ export default function AppShell() {
     }
   };
 
+  const beginRouteTransition = () => {
+    setIsRouteTransitioning(true);
+  };
+
   return (
     <div className="app-shell min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 text-slate-950 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100 dark:[&_.bg-white]:bg-slate-900 dark:[&_.bg-slate-50]:bg-slate-800 dark:[&_.bg-slate-100]:bg-slate-800 dark:[&_.border-slate-200]:border-slate-700 dark:[&_.text-slate-950]:text-slate-50 dark:[&_.text-slate-900]:text-slate-100 dark:[&_.text-slate-800]:text-slate-200 dark:[&_.text-slate-700]:text-slate-300 dark:[&_.text-slate-600]:text-slate-300 dark:[&_.text-slate-500]:text-slate-400 lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
+      <span className={isRouteTransitioning ? "app-route-progress app-route-progress-active" : "app-route-progress"} aria-hidden="true" />
       <aside className="app-sidebar sticky top-0 z-20 hidden min-h-screen flex-col gap-7 border-r border-slate-200/90 bg-white/80 px-6 py-7 backdrop-blur dark:border-slate-700 dark:bg-slate-900/80 lg:flex">
         <div className="flex items-center gap-3">
           <LogoButton
@@ -182,6 +198,11 @@ export default function AppShell() {
                 const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
                 if (isRenewOnly) {
                   e.preventDefault();
+                  return;
+                }
+
+                if (location.pathname !== item.path) {
+                  beginRouteTransition();
                 }
               }}
             >
@@ -249,7 +270,9 @@ export default function AppShell() {
           </select>
           {libraryError ? <p className="m-0 text-xs font-bold text-red-600">{libraryError}</p> : null}
         </div>
-        <Outlet />
+        <div key={location.pathname} className="app-page-enter">
+          <Outlet />
+        </div>
       </main>
 
       <nav
@@ -277,6 +300,11 @@ export default function AppShell() {
               const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
               if (isRenewOnly) {
                 e.preventDefault();
+                return;
+              }
+
+              if (location.pathname !== item.path) {
+                beginRouteTransition();
               }
             }}
           >

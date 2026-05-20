@@ -21,7 +21,7 @@ export default function FloatingToastStack({ error = "", success = "" }) {
   if (!error && !success) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-[120] flex flex-col items-center gap-3 px-4 sm:top-6">
+    <div className="app-toast-stack pointer-events-none fixed inset-x-0 top-4 z-[120] flex flex-col items-center gap-3 px-4 sm:top-6">
       {error ? <FloatingToast message={error} tone="error" /> : null}
       {success ? <FloatingToast message={success} tone="success" /> : null}
     </div>

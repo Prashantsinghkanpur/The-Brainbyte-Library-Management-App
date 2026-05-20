@@ -4,7 +4,9 @@ import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
+import { withMinimumDelay } from "../lib/async";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
+import { getPaymentMessageActions } from "../lib/messages";
 
 const initialForm = {
   studentId: "",
@@ -71,6 +73,8 @@ export default function PaymentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState("");
   const [deletingPaymentId, setDeletingPaymentId] = useState("");
+  const [autoSendReceipt, setAutoSendReceipt] = useState(true);
+  const [loadingPayments, setLoadingPayments] = useState(true);
   const preselectedStudentId = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
     return location.state?.studentId || searchParams.get("studentId") || "";
@@ -78,6 +82,7 @@ export default function PaymentsPage() {
 
   const loadPayments = async (activeFilters = filters) => {
     setError("");
+    setLoadingPayments(true);
 
     try {
       const searchParams = new URLSearchParams();
@@ -89,17 +94,19 @@ export default function PaymentsPage() {
       if (activeFilters.year) summaryParams.set("year", activeFilters.year);
       if (activeFilters.month) summaryParams.set("month", activeFilters.month);
 
-      const [studentsData, paymentsData, summaryData] = await Promise.all([
+      const [studentsData, paymentsData, summaryData] = await withMinimumDelay(Promise.all([
         apiRequest("/students?sort=name", { token }),
         apiRequest(`/payments${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
         apiRequest(`/payments/summary${summaryParams.toString() ? `?${summaryParams.toString()}` : ""}`, { token })
-      ]);
+      ]), 340);
 
       setStudents(studentsData);
       setPayments(paymentsData);
       setSummary(summaryData);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoadingPayments(false);
     }
   };
 
@@ -175,8 +182,11 @@ export default function PaymentsPage() {
     setSuccess("");
     setSubmitting(true);
 
+    const shouldAutoSendReceipt = !editingPaymentId && autoSendReceipt;
+    const receiptPopup = shouldAutoSendReceipt ? window.open("", "_blank") : null;
+
     try {
-      await apiRequest(editingPaymentId ? `/payments/${editingPaymentId}` : "/payments", {
+      const savedPayment = await apiRequest(editingPaymentId ? `/payments/${editingPaymentId}` : "/payments", {
         method: editingPaymentId ? "PATCH" : "POST",
         token,
         body: {
@@ -185,11 +195,37 @@ export default function PaymentsPage() {
         }
       });
 
-      setSuccess(editingPaymentId ? "Payment updated successfully." : "Payment recorded successfully.");
+      const savedStudent =
+        savedPayment?.studentId ||
+        savedPayment?.student ||
+        students.find((student) => student._id === form.studentId) ||
+        null;
+
+      if (shouldAutoSendReceipt) {
+        if (savedStudent?.phone) {
+          const paymentMessage = getPaymentMessageActions(savedStudent, savedPayment);
+
+          if (receiptPopup) {
+            receiptPopup.location.href = paymentMessage.feeSubmissionLinks.whatsapp;
+          } else {
+            window.open(paymentMessage.feeSubmissionLinks.whatsapp, "_blank", "noopener,noreferrer");
+          }
+
+          setSuccess("Payment recorded and fee submission message opened in WhatsApp.");
+        } else {
+          receiptPopup?.close();
+          setSuccess("Payment recorded successfully. Student phone number is missing, so no message was sent.");
+        }
+      } else {
+        receiptPopup?.close();
+        setSuccess(editingPaymentId ? "Payment updated successfully." : "Payment recorded successfully.");
+      }
+
       setForm(initialForm);
       setEditingPaymentId("");
       loadPayments();
     } catch (submitError) {
+      receiptPopup?.close();
       setError(getErrorMessage(submitError));
     } finally {
       setSubmitting(false);
@@ -318,6 +354,21 @@ export default function PaymentsPage() {
               <label className="font-semibold text-slate-600" htmlFor="payment-notes">Notes</label>
               <textarea className="min-h-28 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="payment-notes" name="notes" value={form.notes} onChange={handleFormChange} />
             </div>
+
+            {!editingPaymentId ? (
+              <label className="flex items-start gap-3 rounded-[1.25rem] border border-teal-100 bg-teal-50 p-4 text-sm text-slate-700">
+                <input
+                  checked={autoSendReceipt}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                  onChange={(event) => setAutoSendReceipt(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong className="block font-extrabold text-teal-800">Auto-send fee receipt message</strong>
+                  After saving payment, WhatsApp opens with a message containing amount, submission date, and paid till date.
+                </span>
+              </label>
+            ) : null}
 
             <div className="flex flex-wrap gap-3">
               <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit" disabled={submitting} type="submit">
@@ -449,7 +500,7 @@ export default function PaymentsPage() {
               </div>
             </article>
           ))}
-          {payments.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No payments found for the current filters.</div> : null}
+          {!loadingPayments && payments.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No payments found for the current filters.</div> : null}
         </div>
 
         <div className="hidden w-full overflow-x-auto rounded-3xl border border-slate-200 md:block">
@@ -493,7 +544,7 @@ export default function PaymentsPage() {
               ))}
             </tbody>
           </table>
-          {payments.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No payments found for the current filters.</div> : null}
+          {!loadingPayments && payments.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No payments found for the current filters.</div> : null}
         </div>
       </section>
     </div>

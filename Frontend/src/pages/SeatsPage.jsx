@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
+import { withMinimumDelay } from "../lib/async";
 import { getErrorMessage } from "../lib/format";
 
 const initialHallForm = {
@@ -101,6 +103,7 @@ function SeatBadge({ student }) {
 }
 
 export default function SeatsPage() {
+  const navigate = useNavigate();
   const { token } = useAuth();
   const { error, success, setError, setSuccess } = useTimedAlerts();
   const [gridData, setGridData] = useState({ halls: [], summary: {}, seats: [], selectedHall: null });
@@ -110,9 +113,11 @@ export default function SeatsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingHallId, setDeletingHallId] = useState("");
   const [showHallForm, setShowHallForm] = useState(false);
+  const [loadingGrid, setLoadingGrid] = useState(true);
 
   const loadGrid = async (nextFilters = filters) => {
     setError("");
+    setLoadingGrid(true);
 
     try {
       const searchParams = new URLSearchParams();
@@ -120,7 +125,10 @@ export default function SeatsPage() {
         if (value && value !== "ALL") searchParams.set(key, value);
       });
 
-      const data = await apiRequest(`/seats/grid${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token });
+      const data = await withMinimumDelay(
+        apiRequest(`/seats/grid${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
+        340
+      );
       setGridData(data);
 
       if (!nextFilters.hallName && data.selectedHall?.name) {
@@ -128,6 +136,8 @@ export default function SeatsPage() {
       }
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoadingGrid(false);
     }
   };
 
@@ -257,6 +267,11 @@ export default function SeatsPage() {
     } finally {
       setDeletingHallId("");
     }
+  };
+
+  const handleSeatOpenProfile = (seat) => {
+    if (!seat?.student?.id) return;
+    navigate("/students", { state: { studentId: seat.student.id } });
   };
 
   return (
@@ -404,9 +419,18 @@ export default function SeatsPage() {
             {gridData.seats.map((seat) => (
               <article
                 className={`relative grid min-h-[11.5rem] content-start rounded-[1.15rem] border p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem] ${
-                  seat.student ? "border-[#cfe1e8] bg-white" : "border-[#d9e8ee] bg-white/90"
+                  seat.student ? "cursor-pointer border-[#cfe1e8] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,184,198,0.22)]" : "border-[#d9e8ee] bg-white/90"
                 }`}
                 key={`${seat.hallName}-${seat.seatNumber}`}
+                onClick={seat.student ? () => handleSeatOpenProfile(seat) : undefined}
+                onKeyDown={seat.student ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleSeatOpenProfile(seat);
+                  }
+                } : undefined}
+                role={seat.student ? "button" : undefined}
+                tabIndex={seat.student ? 0 : undefined}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="inline-flex items-center gap-1.5 text-[0.95rem] font-black text-slate-900 min-[380px]:text-[1.05rem] sm:text-xl">

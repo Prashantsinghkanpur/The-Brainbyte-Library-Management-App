@@ -34,3 +34,174 @@
 .light .app-shell .shadow-slate-400\/25 {
   --tw-shadow-color: rgba(217, 119, 6, 0.16);
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+.app-shell button,
+.app-shell a,
+.app-shell select,
+.app-shell input,
+.app-shell textarea,
+.app-shell article,
+.app-shell section {
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    box-shadow 220ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.app-shell button:active,
+.app-shell a:active {
+  transform: scale(0.985);
+}
+
+.app-page-enter {
+  animation: app-page-enter 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+.app-page-enter > * > section,
+.app-page-enter > * > article,
+.app-page-enter > * > button,
+.app-page-enter > * > form {
+  opacity: 0;
+  animation: app-surface-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.app-page-enter > * > :nth-child(1) { animation-delay: 70ms; }
+.app-page-enter > * > :nth-child(2) { animation-delay: 130ms; }
+.app-page-enter > * > :nth-child(3) { animation-delay: 190ms; }
+.app-page-enter > * > :nth-child(4) { animation-delay: 250ms; }
+.app-page-enter > * > :nth-child(5) { animation-delay: 310ms; }
+.app-page-enter > * > :nth-child(6) { animation-delay: 370ms; }
+
+.app-route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 140;
+  height: 4px;
+  width: 0;
+  opacity: 0;
+  background: linear-gradient(90deg, #0f766e, #14b8a6 35%, #38bdf8 72%, #0ea5e9);
+  box-shadow: 0 0 24px rgba(20, 184, 166, 0.4);
+  border-radius: 999px;
+  transition: opacity 180ms ease;
+}
+
+.app-route-progress-active {
+  opacity: 1;
+  animation: app-route-progress 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.app-page-enter > * > section,
+.app-page-enter > * > article {
+  will-change: transform, opacity, filter;
+}
+
+.app-page-enter article,
+.app-page-enter section[class*="rounded"],
+.app-page-enter button[class*="rounded"] {
+  backface-visibility: hidden;
+}
+
+.app-modal-overlay {
+  animation: app-overlay-fade 300ms ease-out;
+}
+
+.app-modal-panel {
+  animation: app-modal-pop 440ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+.app-toast-stack {
+  animation: app-toast-drop 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell button[class*="fixed inset-0"]:not(.app-modal-overlay) {
+  animation: app-overlay-fade 300ms ease-out;
+}
+
+.app-shell section[class*="fixed left-1/2"] {
+  animation: app-modal-pop 440ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+@keyframes app-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes app-surface-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.99);
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes app-route-progress {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes app-overlay-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-modal-pop {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes app-toast-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

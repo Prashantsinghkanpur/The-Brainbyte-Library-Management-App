@@ -4,6 +4,7 @@ import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
+import { withMinimumDelay } from "../lib/async";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
 const toDateInputDate = (date) => {
@@ -67,6 +68,9 @@ const getPaidTillFromPlan = (startDate, plan) => {
   return toDateInputDate(date);
 };
 
+const createQrImageUrl = (url, size = 420) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`;
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token, user, setSession } = useAuth();
@@ -82,18 +86,20 @@ export default function DashboardPage() {
   const [libraryForm, setLibraryForm] = useState(initialLibraryForm);
   const [creatingMember, setCreatingMember] = useState(false);
   const [creatingLibrary, setCreatingLibrary] = useState(false);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
 
   const loadDashboard = async () => {
     setError("");
+    setLoadingDashboard(true);
 
     try {
-      const [analyticsData, studentsData, paymentData, profileData, librariesData] = await Promise.all([
+      const [analyticsData, studentsData, paymentData, profileData, librariesData] = await withMinimumDelay(Promise.all([
         apiRequest("/analytics/summary", { token }),
         apiRequest("/students?sort=recent", { token }),
         apiRequest("/payments?sort=latest", { token }),
         apiRequest("/settings/profile", { token }),
         apiRequest("/auth/libraries", { token })
-      ]);
+      ]), 360);
 
       setAnalytics(analyticsData);
       setStudents(studentsData.slice(0, 3));
@@ -102,6 +108,8 @@ export default function DashboardPage() {
       setOwnerLibraries(librariesData.libraries || []);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
+    } finally {
+      setLoadingDashboard(false);
     }
   };
 
@@ -136,6 +144,12 @@ export default function DashboardPage() {
   const libraryAddress = libraryProfile?.address || "Address not added";
   const libraryInitials = libraryName.slice(0, 2).toUpperCase();
   const normalizedPhone = String(libraryProfile?.phone || "").replace(/\D/g, "");
+  const qrPublicUrl =
+    typeof window !== "undefined" && user?.libraryId
+      ? `${window.location.origin}/public/qr/seats/${user.libraryId}`
+      : "";
+  const qrImageUrl = qrPublicUrl ? createQrImageUrl(qrPublicUrl, 420) : "";
+  const qrPrintUrl = qrPublicUrl ? createQrImageUrl(qrPublicUrl, 1200) : "";
   const referralMessage = `Join ${libraryName} with my referral code ${referralCode}. Refer a new admission and earn INR 149 after successful registration.`;
   const communityMessage = `Hi, I want to join the ${libraryName} community for latest updates and library news.`;
   const communityLink = normalizedPhone
@@ -187,6 +201,37 @@ export default function DashboardPage() {
   const handleOpenCommunity = () => {
     window.open(communityLink, "_blank", "noopener,noreferrer");
     setSuccess("Opening WhatsApp community invite.");
+  };
+
+  const handleCopyText = async (value, successText) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setSuccess(successText);
+      setError("");
+    } catch {
+      setError("Could not copy the link.");
+    }
+  };
+
+  const handleShareQr = async () => {
+    if (!qrPublicUrl) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${libraryName} Vacant Seats`,
+          text: `Check the latest vacant seats for ${libraryName}.`,
+          url: qrPublicUrl
+        });
+        setSuccess("Vacant seat link shared successfully.");
+        setError("");
+        return;
+      }
+
+      await handleCopyText(qrPublicUrl, "Vacant seat link copied.");
+    } catch {
+      setError("Could not share the vacant seat link.");
+    }
   };
 
   const openInfoPopup = (type) => {
@@ -502,14 +547,39 @@ export default function DashboardPage() {
             </div>
           ) : activePromo === "qr" ? (
             <div className="grid gap-4">
-              <div className="grid place-items-center rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                <div className="grid h-44 w-44 grid-cols-5 gap-2 rounded-2xl bg-white p-4 shadow-inner">
-                  {Array.from({ length: 25 }, (_, index) => (
-                    <span key={index} className={(index + 1) % 2 === 0 || index % 7 === 0 ? "rounded bg-slate-950" : "rounded bg-slate-100"} />
-                  ))}
-                </div>
-              </div>
-              <p className="m-0 text-sm font-bold text-slate-500">Use this QR to let visitors view only the vacant seats in your library.</p>
+              {qrPublicUrl ? (
+                <>
+                  <div className="grid place-items-center rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <div className="w-full max-w-sm rounded-[2rem] border border-teal-100 bg-white p-5 text-center shadow-lg shadow-slate-300/15">
+                      <img className="mx-auto w-full max-w-[18rem] rounded-[1.75rem] border border-slate-100 bg-white p-3" src={qrImageUrl} alt={`${libraryName} vacant seats QR code`} />
+                      <a className="mt-4 inline-flex text-sm font-extrabold uppercase tracking-[0.18em] text-teal-700 underline underline-offset-4" href={qrPublicUrl} rel="noreferrer" target="_blank">
+                        Preview Vacant Seats
+                      </a>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Public URL</span>
+                    <p className="m-0 mt-2 break-all text-sm text-slate-700">{qrPublicUrl}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button className="min-h-12 rounded-full bg-teal-700 px-5 font-extrabold text-white" onClick={handleShareQr} type="button">
+                      Share QR Link
+                    </button>
+                    <button className="min-h-12 rounded-full border border-slate-200 bg-white px-5 font-extrabold text-slate-800" onClick={() => handleCopyText(qrPublicUrl, "Vacant seat link copied.")} type="button">
+                      Copy Link
+                    </button>
+                    <a className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 font-extrabold text-slate-800" href={qrPrintUrl} rel="noreferrer" target="_blank">
+                      Open Print QR
+                    </a>
+                    <Link className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-5 font-extrabold text-slate-800" to="/settings" onClick={() => setActivePromo("")}>
+                      Open Settings QR
+                    </Link>
+                  </div>
+                  <p className="m-0 text-sm font-bold text-slate-500">This QR opens the public vacant seat grid only, so students can see available seats without accessing admin data.</p>
+                </>
+              ) : (
+                <p className="m-0 text-sm font-bold text-slate-500">QR access will appear here once your library profile is loaded.</p>
+              )}
             </div>
           ) : activePromo === "branding" ? (
             <div className="grid gap-4">
