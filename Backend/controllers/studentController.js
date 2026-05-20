@@ -52,6 +52,16 @@ const getTodayStart = () => {
   return today;
 };
 
+const parseLimit = (value) => {
+  const numericLimit = Number(value);
+
+  if (!Number.isInteger(numericLimit) || numericLimit <= 0) {
+    return null;
+  }
+
+  return Math.min(numericLimit, 200);
+};
+
 const getNextMemberId = async (libraryId) => {
   const counter = await Counter.findOneAndUpdate(
     { libraryId, key: "student_member_id" },
@@ -199,7 +209,7 @@ exports.addStudent = async (req, res) => {
 // GET STUDENTS
 exports.getStudents = async (req, res) => {
   try {
-    const { search, status, shift, hallName, paymentStatus, sort = "recent" } = req.query;
+    const { search, status, shift, hallName, paymentStatus, sort = "recent", limit } = req.query;
     const query = { libraryId: req.user.libraryId };
 
     if (status) {
@@ -263,7 +273,14 @@ exports.getStudents = async (req, res) => {
       memberId: { memberId: 1 }
     };
 
-    const students = await Student.find(query).sort(sortMap[sort] || sortMap.recent);
+    const queryBuilder = Student.find(query).sort(sortMap[sort] || sortMap.recent).lean();
+    const resolvedLimit = parseLimit(limit);
+
+    if (resolvedLimit) {
+      queryBuilder.limit(resolvedLimit);
+    }
+
+    const students = await queryBuilder;
 
     res.json(students);
   } catch (err) {
@@ -280,7 +297,7 @@ exports.getStudentById = async (req, res) => {
     const student = await Student.findOne({
       _id: req.params.id,
       libraryId: req.user.libraryId
-    });
+    }).lean();
 
     if (!student) {
       return res.status(404).json({ msg: "Student not found" });
@@ -333,7 +350,7 @@ exports.archiveStudent = async (req, res) => {
 
 exports.getFormerMembers = async (req, res) => {
   try {
-    const { search, sort = "recent" } = req.query;
+    const { search, sort = "recent", limit } = req.query;
     const query = { libraryId: req.user.libraryId };
 
     if (search) {
@@ -367,7 +384,14 @@ exports.getFormerMembers = async (req, res) => {
       memberId: { memberId: 1 }
     };
 
-    const formerMembers = await FormerMember.find(query).sort(sortMap[sort] || sortMap.recent);
+    const queryBuilder = FormerMember.find(query).sort(sortMap[sort] || sortMap.recent).lean();
+    const resolvedLimit = parseLimit(limit);
+
+    if (resolvedLimit) {
+      queryBuilder.limit(resolvedLimit);
+    }
+
+    const formerMembers = await queryBuilder;
 
     res.json(formerMembers);
   } catch (err) {

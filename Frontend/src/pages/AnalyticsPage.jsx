@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
+import { withMinimumDelay } from "../lib/async";
+import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
 const currentDate = new Date();
@@ -22,6 +25,8 @@ const monthOptions = [
   { label: "Nov", value: "11" },
   { label: "Dec", value: "12" }
 ];
+
+const ANALYTICS_CACHE_MAX_AGE = 5 * 60 * 1000;
 
 const getMethodTotal = (methods, method) => methods?.[method]?.total || 0;
 
@@ -55,7 +60,7 @@ function MetricCard({ title, value, detail, accent }) {
 }
 
 export default function AnalyticsPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [filters, setFilters] = useState({ year: String(currentYear), month: currentMonth });
   const [analytics, setAnalytics] = useState(null);
   const [breakdownTab, setBreakdownTab] = useState("income");
@@ -63,6 +68,7 @@ export default function AnalyticsPage() {
   const [recentPayments, setRecentPayments] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
   const [error, setError] = useState("");
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -70,28 +76,52 @@ export default function AnalyticsPage() {
     if (filters.month) params.set("month", filters.month);
     return params.toString() ? `?${params.toString()}` : "";
   }, [filters]);
+  const analyticsCacheKey = buildCacheKey("analytics", user?.libraryId || "default", queryString || "current");
+  const hasAnalyticsSnapshot = analytics !== null || recentPayments.length > 0 || recentExpenses.length > 0;
 
   useEffect(() => {
     const loadAnalytics = async () => {
       setError("");
+      const cachedSnapshot = readCachedValue(analyticsCacheKey, {
+        maxAgeMs: ANALYTICS_CACHE_MAX_AGE,
+        allowExpired: true
+      });
+
+      if (cachedSnapshot) {
+        setAnalytics(cachedSnapshot.analytics || null);
+        setRecentPayments(cachedSnapshot.recentPayments || []);
+        setRecentExpenses(cachedSnapshot.recentExpenses || []);
+        setLoadingAnalytics(false);
+      } else if (!hasAnalyticsSnapshot) {
+        setLoadingAnalytics(true);
+      }
 
       try {
-        const [analyticsData, paymentData, expenseData] = await Promise.all([
+        const [analyticsData, paymentData, expenseData] = await withMinimumDelay(Promise.all([
           apiRequest(`/analytics/summary${queryString}`, { token }),
-          apiRequest(`/payments${queryString}&sort=latest`.replace("?&", "?"), { token }),
-          apiRequest(`/expenses${queryString}&sort=latest`.replace("?&", "?"), { token })
-        ]);
+          apiRequest(`/payments${queryString}&sort=latest&limit=5`.replace("?&", "?"), { token }),
+          apiRequest(`/expenses${queryString}&sort=latest&limit=5`.replace("?&", "?"), { token })
+        ]), cachedSnapshot || hasAnalyticsSnapshot ? 0 : 280);
 
-        setAnalytics(analyticsData);
-        setRecentPayments((paymentData || []).slice(0, 5));
-        setRecentExpenses((expenseData || []).slice(0, 5));
+        const nextSnapshot = {
+          analytics: analyticsData,
+          recentPayments: paymentData || [],
+          recentExpenses: expenseData || []
+        };
+
+        setAnalytics(nextSnapshot.analytics);
+        setRecentPayments(nextSnapshot.recentPayments);
+        setRecentExpenses(nextSnapshot.recentExpenses);
+        writeCachedValue(analyticsCacheKey, nextSnapshot);
       } catch (loadError) {
         setError(getErrorMessage(loadError));
+      } finally {
+        setLoadingAnalytics(false);
       }
     };
 
     loadAnalytics();
-  }, [queryString, token]);
+  }, [analyticsCacheKey, queryString, token]);
 
   const cards = [
     {
@@ -161,6 +191,7 @@ export default function AnalyticsPage() {
         { label: "Pending Students", value: String(analytics?.pendingStudents ?? 0), tone: "text-orange-700 bg-orange-50" }
       ];
   const activityItems = activityTab === "payments" ? recentPayments : recentExpenses;
+  const showAnalyticsSkeleton = loadingAnalytics && analytics === null;
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-hidden sm:gap-6">
@@ -235,11 +266,22 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="grid min-w-0 grid-cols-2 gap-2.5">
-          {cards.map((card) => (
-            <div className="min-w-0" key={card.title}>
-              <MetricCard {...card} />
-            </div>
-          ))}
+          {showAnalyticsSkeleton
+            ? Array.from({ length: 8 }, (_, index) => (
+                <article className="min-w-0 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/20 min-[380px]:p-4 sm:rounded-[1.5rem] sm:p-5" key={index}>
+                  <div className="grid gap-3">
+                    <SkeletonBlock className="h-10 w-10 rounded-2xl" />
+                    <SkeletonBlock className="h-4 w-24 rounded-full" />
+                    <SkeletonBlock className="h-8 w-28 rounded-2xl" />
+                    <SkeletonBlock className="h-3 w-32 rounded-full" />
+                  </div>
+                </article>
+              ))
+            : cards.map((card) => (
+                <div className="min-w-0" key={card.title}>
+                  <MetricCard {...card} />
+                </div>
+              ))}
         </div>
       </section>
 
@@ -362,27 +404,39 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="grid gap-3">
-          {activityItems.map((item) => (
-            <article className="grid gap-3 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/10 min-[380px]:p-4" key={item._id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <strong className="block min-w-0 break-words text-sm font-black text-slate-950 min-[380px]:text-base">
-                    {activityTab === "payments" ? item.student?.name || "Deleted student" : item.title}
-                  </strong>
-                  <p className="m-0 mt-1 text-xs font-bold text-slate-500 min-[380px]:text-sm">
-                    {activityTab === "payments"
-                      ? `${formatDate(item.paymentDate)} | ${item.method}`
-                      : `${formatDate(item.expenseDate)} | ${item.category}`}
-                  </p>
-                </div>
-                <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${activityTab === "payments" ? "bg-teal-50 text-teal-700" : "bg-rose-50 text-rose-700"}`}>
-                  {formatCurrency(item.amount)}
-                </span>
-              </div>
-            </article>
-          ))}
+          {showAnalyticsSkeleton
+            ? Array.from({ length: 3 }, (_, index) => (
+                <article className="grid gap-3 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/10 min-[380px]:p-4" key={index}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid min-w-0 gap-2">
+                      <SkeletonBlock className="h-4 w-32 rounded-full" />
+                      <SkeletonBlock className="h-3 w-28 rounded-full" />
+                    </div>
+                    <SkeletonBlock className="h-7 w-20 rounded-full" />
+                  </div>
+                </article>
+              ))
+            : activityItems.map((item) => (
+                <article className="grid gap-3 rounded-[1.15rem] border border-slate-200 bg-white p-3 shadow-lg shadow-slate-300/10 min-[380px]:p-4" key={item._id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <strong className="block min-w-0 break-words text-sm font-black text-slate-950 min-[380px]:text-base">
+                        {activityTab === "payments" ? item.student?.name || "Deleted student" : item.title}
+                      </strong>
+                      <p className="m-0 mt-1 text-xs font-bold text-slate-500 min-[380px]:text-sm">
+                        {activityTab === "payments"
+                          ? `${formatDate(item.paymentDate)} | ${item.method}`
+                          : `${formatDate(item.expenseDate)} | ${item.category}`}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${activityTab === "payments" ? "bg-teal-50 text-teal-700" : "bg-rose-50 text-rose-700"}`}>
+                      {formatCurrency(item.amount)}
+                    </span>
+                  </div>
+                </article>
+              ))}
 
-          {activityItems.length === 0 ? (
+          {!showAnalyticsSkeleton && activityItems.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm font-bold text-slate-500">
               No {activityTab} found for this period.
             </div>

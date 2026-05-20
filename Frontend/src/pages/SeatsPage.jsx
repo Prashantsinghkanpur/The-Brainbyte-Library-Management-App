@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
+import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
+import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { getErrorMessage } from "../lib/format";
 
 const initialHallForm = {
@@ -20,6 +22,8 @@ const initialFilters = {
   search: ""
 };
 
+const SEAT_GRID_CACHE_MAX_AGE = 5 * 60 * 1000;
+
 const getSeatInitials = (name) => {
   if (!name) return "+";
 
@@ -33,6 +37,16 @@ const getSeatInitials = (name) => {
 };
 
 const getSeatShiftLabel = (shift) => (shift ? shift.replace(/_/g, " ") : "AVAILABLE");
+
+const buildSeatFilterQuery = (filters) => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value && value !== "ALL") searchParams.set(key, value);
+  });
+
+  return searchParams.toString();
+};
 
 const getSeatStatusMeta = (student) => {
   if (!student) {
@@ -104,7 +118,7 @@ function SeatBadge({ student }) {
 
 export default function SeatsPage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { error, success, setError, setSuccess } = useTimedAlerts();
   const [gridData, setGridData] = useState({ halls: [], summary: {}, seats: [], selectedHall: null });
   const [hallForm, setHallForm] = useState(initialHallForm);
@@ -114,22 +128,31 @@ export default function SeatsPage() {
   const [deletingHallId, setDeletingHallId] = useState("");
   const [showHallForm, setShowHallForm] = useState(false);
   const [loadingGrid, setLoadingGrid] = useState(true);
+  const hasGridSnapshot = gridData.seats.length > 0 || gridData.halls.length > 0 || Boolean(gridData.selectedHall);
 
   const loadGrid = async (nextFilters = filters) => {
     setError("");
-    setLoadingGrid(true);
+    const searchQuery = buildSeatFilterQuery(nextFilters);
+    const cacheKey = buildCacheKey("seat-grid", user?.libraryId || "default", searchQuery || "all");
+    const cachedGrid = readCachedValue(cacheKey, {
+      maxAgeMs: SEAT_GRID_CACHE_MAX_AGE,
+      allowExpired: true
+    });
+
+    if (cachedGrid) {
+      setGridData(cachedGrid);
+      setLoadingGrid(false);
+    } else if (!hasGridSnapshot) {
+      setLoadingGrid(true);
+    }
 
     try {
-      const searchParams = new URLSearchParams();
-      Object.entries(nextFilters).forEach(([key, value]) => {
-        if (value && value !== "ALL") searchParams.set(key, value);
-      });
-
       const data = await withMinimumDelay(
-        apiRequest(`/seats/grid${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
-        340
+        apiRequest(`/seats/grid${searchQuery ? `?${searchQuery}` : ""}`, { token }),
+        cachedGrid || hasGridSnapshot ? 0 : 340
       );
       setGridData(data);
+      writeCachedValue(cacheKey, data);
 
       if (!nextFilters.hallName && data.selectedHall?.name) {
         setFilters((current) => ({ ...current, hallName: data.selectedHall.name }));
@@ -143,7 +166,7 @@ export default function SeatsPage() {
 
   useEffect(() => {
     loadGrid(initialFilters);
-  }, [token]);
+  }, [token, user?.libraryId]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -273,6 +296,7 @@ export default function SeatsPage() {
     if (!seat?.student?.id) return;
     navigate("/students", { state: { studentId: seat.student.id } });
   };
+  const showSeatGridSkeleton = loadingGrid && gridData.seats.length === 0;
 
   return (
     <div className="grid gap-3 sm:gap-6">
@@ -416,62 +440,76 @@ export default function SeatsPage() {
 
         <div className="rounded-[1.45rem] border border-[#d8e8ef] bg-gradient-to-b from-[#eff7fb] to-[#e8f3f8] p-2 shadow-xl shadow-slate-300/20 min-[380px]:p-3 sm:rounded-[1.8rem] sm:p-4">
           <div className="grid grid-cols-2 gap-2 min-[380px]:gap-3 xl:grid-cols-3">
-            {gridData.seats.map((seat) => (
-              <article
-                className={`relative grid min-h-[11.5rem] content-start rounded-[1.15rem] border p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem] ${
-                  seat.student ? "cursor-pointer border-[#cfe1e8] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,184,198,0.22)]" : "border-[#d9e8ee] bg-white/90"
-                }`}
-                key={`${seat.hallName}-${seat.seatNumber}`}
-                onClick={seat.student ? () => handleSeatOpenProfile(seat) : undefined}
-                onKeyDown={seat.student ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleSeatOpenProfile(seat);
-                  }
-                } : undefined}
-                role={seat.student ? "button" : undefined}
-                tabIndex={seat.student ? 0 : undefined}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-[0.95rem] font-black text-slate-900 min-[380px]:text-[1.05rem] sm:text-xl">
-                    <span
-                      className={`h-2 w-2 rounded-full min-[380px]:h-2.5 min-[380px]:w-2.5 ${
-                        seat.student
-                          ? seat.student.duesState === "PAID"
-                            ? "bg-teal-500"
-                            : "bg-rose-500"
-                          : "bg-emerald-500"
-                      }`}
-                    />
-                    {seat.seatNumber}
-                  </span>
-                  <SeatBadge student={seat.student} />
-                </div>
+            {showSeatGridSkeleton
+              ? Array.from({ length: 6 }, (_, index) => (
+                  <article className="grid min-h-[11.5rem] rounded-[1.15rem] border border-[#d9e8ee] bg-white/90 p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem]" key={index}>
+                    <div className="flex items-start justify-between gap-3">
+                      <SkeletonBlock className="h-5 w-12 rounded-full" />
+                      <SkeletonBlock className="h-6 w-14 rounded-full" />
+                    </div>
+                    <div className="mt-6 grid justify-items-center gap-4">
+                      <SkeletonBlock className="h-16 w-16 rounded-full sm:h-20 sm:w-20" />
+                      <SkeletonBlock className="h-5 w-24 rounded-full" />
+                      <SkeletonBlock className="h-7 w-20 rounded-full" />
+                    </div>
+                  </article>
+                ))
+              : gridData.seats.map((seat) => (
+                  <article
+                    className={`relative grid min-h-[11.5rem] content-start rounded-[1.15rem] border p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem] ${
+                      seat.student ? "cursor-pointer border-[#cfe1e8] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,184,198,0.22)]" : "border-[#d9e8ee] bg-white/90"
+                    }`}
+                    key={`${seat.hallName}-${seat.seatNumber}`}
+                    onClick={seat.student ? () => handleSeatOpenProfile(seat) : undefined}
+                    onKeyDown={seat.student ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleSeatOpenProfile(seat);
+                      }
+                    } : undefined}
+                    role={seat.student ? "button" : undefined}
+                    tabIndex={seat.student ? 0 : undefined}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-[0.95rem] font-black text-slate-900 min-[380px]:text-[1.05rem] sm:text-xl">
+                        <span
+                          className={`h-2 w-2 rounded-full min-[380px]:h-2.5 min-[380px]:w-2.5 ${
+                            seat.student
+                              ? seat.student.duesState === "PAID"
+                                ? "bg-teal-500"
+                                : "bg-rose-500"
+                              : "bg-emerald-500"
+                          }`}
+                        />
+                        {seat.seatNumber}
+                      </span>
+                      <SeatBadge student={seat.student} />
+                    </div>
 
-                {seat.student ? (
-                  <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
-                    <div className="grid h-14 w-14 place-items-center rounded-full border-[3px] border-yellow-300 bg-sky-600 text-[1.5rem] font-black text-white shadow-[0_10px_24px_rgba(14,116,144,0.22)] min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-[1.7rem] sm:h-20 sm:w-20 sm:text-[2rem]">
-                      {getSeatInitials(seat.student.name)}
-                    </div>
-                    <strong className="mt-3 block min-w-0 break-words text-[0.92rem] font-black uppercase leading-tight text-slate-950 min-[380px]:mt-4 min-[380px]:text-[1.02rem] sm:mt-5 sm:text-[1.2rem]">
-                      {seat.student.name}
-                    </strong>
-                    <span className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d3e5e8] bg-[#f8fdfd] px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-teal-700 min-[380px]:mt-4 min-[380px]:px-3 min-[380px]:py-1.5 min-[380px]:text-[0.72rem]">
-                      {getSeatShiftLabel(seat.student.shift)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
-                    <div className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-[#d9e2e8] bg-white text-4xl font-thin leading-none text-slate-400 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-5xl sm:h-20 sm:w-20">
-                      +
-                    </div>
-                    <strong className="mt-4 block text-[0.72rem] font-black uppercase tracking-[0.16em] text-slate-400 min-[380px]:mt-5 min-[380px]:text-sm sm:mt-7 sm:text-base">
-                      Available
-                    </strong>
-                  </div>
-                )}
-              </article>
-            ))}
+                    {seat.student ? (
+                      <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
+                        <div className="grid h-14 w-14 place-items-center rounded-full border-[3px] border-yellow-300 bg-sky-600 text-[1.5rem] font-black text-white shadow-[0_10px_24px_rgba(14,116,144,0.22)] min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-[1.7rem] sm:h-20 sm:w-20 sm:text-[2rem]">
+                          {getSeatInitials(seat.student.name)}
+                        </div>
+                        <strong className="mt-3 block min-w-0 break-words text-[0.92rem] font-black uppercase leading-tight text-slate-950 min-[380px]:mt-4 min-[380px]:text-[1.02rem] sm:mt-5 sm:text-[1.2rem]">
+                          {seat.student.name}
+                        </strong>
+                        <span className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d3e5e8] bg-[#f8fdfd] px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-teal-700 min-[380px]:mt-4 min-[380px]:px-3 min-[380px]:py-1.5 min-[380px]:text-[0.72rem]">
+                          {getSeatShiftLabel(seat.student.shift)}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
+                        <div className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-[#d9e2e8] bg-white text-4xl font-thin leading-none text-slate-400 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-5xl sm:h-20 sm:w-20">
+                          +
+                        </div>
+                        <strong className="mt-4 block text-[0.72rem] font-black uppercase tracking-[0.16em] text-slate-400 min-[380px]:mt-5 min-[380px]:text-sm sm:mt-7 sm:text-base">
+                          Available
+                        </strong>
+                      </div>
+                    )}
+                  </article>
+                ))}
           </div>
         </div>
       </section>

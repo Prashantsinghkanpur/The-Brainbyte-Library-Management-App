@@ -136,6 +136,21 @@ body {
   transform-origin: top center;
 }
 
+.app-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.92) 0%, rgba(241, 245, 249, 1) 50%, rgba(226, 232, 240, 0.92) 100%);
+}
+
+.app-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
+  animation: app-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 @keyframes app-page-enter {
   from {
     opacity: 0;
@@ -203,5 +218,11 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes app-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

@@ -70,6 +70,16 @@ const buildPaymentSearchMatch = (search) => {
   return conditions;
 };
 
+const parseLimit = (value) => {
+  const numericLimit = Number(value);
+
+  if (!Number.isInteger(numericLimit) || numericLimit <= 0) {
+    return null;
+  }
+
+  return Math.min(numericLimit, 200);
+};
+
 const syncStudentFromLatestPayment = async (studentId, libraryId) => {
   if (!studentId) {
     return;
@@ -207,7 +217,7 @@ exports.addPayment = async (req, res) => {
 // GET PAYMENT HISTORY
 exports.getPayments = async (req, res) => {
   try {
-    const { search, method, year, month, studentId, sort = "latest" } = req.query;
+    const { search, method, year, month, studentId, sort = "latest", limit } = req.query;
     const match = {
       libraryId: new mongoose.Types.ObjectId(req.user.libraryId)
     };
@@ -264,6 +274,12 @@ exports.getPayments = async (req, res) => {
     };
 
     pipeline.push({ $sort: sortMap[sort] || sortMap.latest });
+
+    const resolvedLimit = parseLimit(limit);
+
+    if (resolvedLimit) {
+      pipeline.push({ $limit: resolvedLimit });
+    }
 
     const payments = await Payment.aggregate(pipeline);
 

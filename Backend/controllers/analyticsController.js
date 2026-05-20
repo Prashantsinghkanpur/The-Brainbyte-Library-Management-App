@@ -164,7 +164,7 @@ exports.getAnalyticsSummary = async (req, res) => {
     ] = await Promise.all([
       sumAmount(Payment, paymentMatch),
       sumAmount(Expense, expenseMatch),
-      Student.find({ libraryId: req.user.libraryId }),
+      Student.find({ libraryId: req.user.libraryId }).select("feeAmount plan status").lean(),
       sumAmount(Payment, todayPaymentMatch),
       sumByMethod(todayPaymentMatch),
       sumByMethod(paymentMatch),

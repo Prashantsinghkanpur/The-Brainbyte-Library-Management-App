@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
+import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
+import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
 const toDateInputDate = (date) => {
@@ -71,6 +73,8 @@ const getPaidTillFromPlan = (startDate, plan) => {
 const createQrImageUrl = (url, size = 420) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`;
 
+const DASHBOARD_CACHE_MAX_AGE = 5 * 60 * 1000;
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token, user, setSession } = useAuth();
@@ -87,25 +91,57 @@ export default function DashboardPage() {
   const [creatingMember, setCreatingMember] = useState(false);
   const [creatingLibrary, setCreatingLibrary] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const dashboardCacheKey = buildCacheKey("dashboard", user?.libraryId || "default");
+  const hasDashboardSnapshot =
+    analytics !== null ||
+    libraryProfile !== null ||
+    students.length > 0 ||
+    payments.length > 0 ||
+    ownerLibraries.length > 0;
+
+  const applyDashboardSnapshot = (snapshot) => {
+    if (!snapshot) return;
+
+    setAnalytics(snapshot.analytics || null);
+    setStudents(snapshot.students || []);
+    setPayments(snapshot.payments || []);
+    setLibraryProfile(snapshot.libraryProfile || null);
+    setOwnerLibraries(snapshot.ownerLibraries || []);
+  };
 
   const loadDashboard = async () => {
     setError("");
-    setLoadingDashboard(true);
+    const cachedSnapshot = readCachedValue(dashboardCacheKey, {
+      maxAgeMs: DASHBOARD_CACHE_MAX_AGE,
+      allowExpired: true
+    });
+
+    if (cachedSnapshot) {
+      applyDashboardSnapshot(cachedSnapshot);
+      setLoadingDashboard(false);
+    } else if (!hasDashboardSnapshot) {
+      setLoadingDashboard(true);
+    }
 
     try {
       const [analyticsData, studentsData, paymentData, profileData, librariesData] = await withMinimumDelay(Promise.all([
         apiRequest("/analytics/summary", { token }),
-        apiRequest("/students?sort=recent", { token }),
-        apiRequest("/payments?sort=latest", { token }),
+        apiRequest("/students?sort=recent&limit=3", { token }),
+        apiRequest("/payments?sort=latest&limit=3", { token }),
         apiRequest("/settings/profile", { token }),
         apiRequest("/auth/libraries", { token })
-      ]), 360);
+      ]), cachedSnapshot || hasDashboardSnapshot ? 0 : 360);
 
-      setAnalytics(analyticsData);
-      setStudents(studentsData.slice(0, 3));
-      setPayments(paymentData.slice(0, 3));
-      setLibraryProfile(profileData.library);
-      setOwnerLibraries(librariesData.libraries || []);
+      const nextSnapshot = {
+        analytics: analyticsData,
+        students: studentsData || [],
+        payments: paymentData || [],
+        libraryProfile: profileData.library,
+        ownerLibraries: librariesData.libraries || []
+      };
+
+      applyDashboardSnapshot(nextSnapshot);
+      writeCachedValue(dashboardCacheKey, nextSnapshot);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -115,7 +151,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-  }, [token]);
+  }, [token, user?.libraryId]);
 
   const overviewCards = [
     { title: "Active Students", value: analytics?.activeStudents ?? 0, tone: "green" },
@@ -176,6 +212,7 @@ export default function DashboardPage() {
     ? existingSeatCount + newLibrarySeatCount
     : newLibrarySeatCount;
   const newLibraryPaymentTotal = Number(libraryForm.subscriptionAmount || 0) * billedSeatCount;
+  const showDashboardSkeleton = loadingDashboard && !hasDashboardSnapshot;
 
   const setDashboardMode = (mode) => {
     setHomeMode(mode);
@@ -399,13 +436,21 @@ export default function DashboardPage() {
       <section>
         <h3 className="mb-3 mt-0 text-xl font-extrabold min-[380px]:mb-4 min-[380px]:text-2xl">Overview</h3>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          {overviewCards.map((card) => (
-            <article className={`grid min-h-28 min-w-0 content-between overflow-hidden rounded-[1.2rem] bg-gradient-to-br p-3 text-white shadow-xl shadow-slate-300/40 min-[380px]:min-h-32 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:min-h-44 sm:rounded-[1.75rem] sm:p-6 ${toneClasses[card.tone]}`} key={card.title}>
-              <div className="grid h-9 w-9 place-items-center rounded-[0.9rem] bg-white/20 text-sm font-black min-[380px]:h-11 min-[380px]:w-11 min-[380px]:rounded-2xl min-[380px]:text-base sm:h-14 sm:w-14 sm:text-lg">{card.title.slice(0, 1)}</div>
-              <strong className="block min-w-0 break-words text-xl font-black leading-none min-[380px]:text-2xl sm:text-4xl">{card.value}</strong>
-              <p className="m-0 min-w-0 break-words text-xs font-bold leading-tight min-[380px]:text-sm sm:text-base">{card.title}</p>
-            </article>
-          ))}
+          {showDashboardSkeleton
+            ? Array.from({ length: 4 }, (_, index) => (
+                <article className="grid min-h-28 min-w-0 content-between overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-300/30 min-[380px]:min-h-32 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:min-h-44 sm:rounded-[1.75rem] sm:p-6" key={index}>
+                  <SkeletonBlock className="h-10 w-10 rounded-2xl" />
+                  <SkeletonBlock className="h-8 w-20 rounded-2xl sm:h-10 sm:w-28" />
+                  <SkeletonBlock className="h-4 w-24 rounded-full" />
+                </article>
+              ))
+            : overviewCards.map((card) => (
+                <article className={`grid min-h-28 min-w-0 content-between overflow-hidden rounded-[1.2rem] bg-gradient-to-br p-3 text-white shadow-xl shadow-slate-300/40 min-[380px]:min-h-32 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:min-h-44 sm:rounded-[1.75rem] sm:p-6 ${toneClasses[card.tone]}`} key={card.title}>
+                  <div className="grid h-9 w-9 place-items-center rounded-[0.9rem] bg-white/20 text-sm font-black min-[380px]:h-11 min-[380px]:w-11 min-[380px]:rounded-2xl min-[380px]:text-base sm:h-14 sm:w-14 sm:text-lg">{card.title.slice(0, 1)}</div>
+                  <strong className="block min-w-0 break-words text-xl font-black leading-none min-[380px]:text-2xl sm:text-4xl">{card.value}</strong>
+                  <p className="m-0 min-w-0 break-words text-xs font-bold leading-tight min-[380px]:text-sm sm:text-base">{card.title}</p>
+                </article>
+              ))}
         </div>
       </section>
 
@@ -856,30 +901,49 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-3 sm:gap-4">
-          {students.map((student) => (
-            <article className="flex gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4" key={student._id}>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[0.9rem] bg-sky-600 text-base font-extrabold text-white min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-2xl min-[380px]:text-lg sm:h-16 sm:w-16 sm:text-xl">{student.name.slice(0, 2).toUpperCase()}</div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <strong className="block break-words leading-tight">{student.name}</strong>
-                    <p className="m-0 text-sm text-slate-500">ID: {student.memberId}</p>
+          {showDashboardSkeleton
+            ? Array.from({ length: 3 }, (_, index) => (
+                <article className="flex gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4" key={index}>
+                  <SkeletonBlock className="h-12 w-12 shrink-0 rounded-2xl min-[380px]:h-14 min-[380px]:w-14 sm:h-16 sm:w-16" />
+                  <div className="grid min-w-0 flex-1 gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="grid min-w-0 gap-2">
+                        <SkeletonBlock className="h-4 w-28 rounded-full" />
+                        <SkeletonBlock className="h-3 w-16 rounded-full" />
+                      </div>
+                      <SkeletonBlock className="h-6 w-16 rounded-full" />
+                    </div>
+                    <div className="grid gap-3 min-[520px]:grid-cols-2">
+                      <SkeletonBlock className="h-12 rounded-2xl" />
+                      <SkeletonBlock className="h-12 rounded-2xl" />
+                    </div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700 min-[380px]:px-3 min-[380px]:text-xs">{student.status}</span>
-                </div>
-                <div className="mt-3 grid gap-3 min-[520px]:grid-cols-2">
-                  <div className="min-w-0">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
-                    <p className="m-0 break-words">{formatDate(student.joinedDate)}</p>
+                </article>
+              ))
+            : students.map((student) => (
+                <article className="flex gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:gap-4" key={student._id}>
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[0.9rem] bg-sky-600 text-base font-extrabold text-white min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-2xl min-[380px]:text-lg sm:h-16 sm:w-16 sm:text-xl">{student.name.slice(0, 2).toUpperCase()}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <strong className="block break-words leading-tight">{student.name}</strong>
+                        <p className="m-0 text-sm text-slate-500">ID: {student.memberId}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700 min-[380px]:px-3 min-[380px]:text-xs">{student.status}</span>
+                    </div>
+                    <div className="mt-3 grid gap-3 min-[520px]:grid-cols-2">
+                      <div className="min-w-0">
+                        <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
+                        <p className="m-0 break-words">{formatDate(student.joinedDate)}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Position</span>
+                        <p className="m-0 break-words">{student.hallName} - Seat {student.seatNumber}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Position</span>
-                    <p className="m-0 break-words">{student.hallName} - Seat {student.seatNumber}</p>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
+                </article>
+              ))}
         </div>
       </section>
 
@@ -890,19 +954,31 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-3 sm:gap-4">
-          {payments.map((payment) => (
-            <article className="grid gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4" key={payment._id}>
-              <div className="flex items-start justify-between gap-3">
-                <strong className="min-w-0 break-words leading-tight">{payment.student?.name || "Deleted student"}</strong>
-                <div className="shrink-0 rounded-2xl bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-700 min-[380px]:px-4 min-[380px]:py-2 min-[380px]:text-sm">{payment.method}</div>
-              </div>
-              <div className="break-words text-2xl font-black text-teal-700 min-[380px]:text-3xl sm:text-4xl">{formatCurrency(payment.amount)}</div>
-              <div className="break-words rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700 sm:text-base">
-                {formatDate(payment.membershipStartDate)} - {formatDate(payment.paidTill)}
-              </div>
-              <p className="m-0 break-words font-bold text-teal-700">Paid on {formatDate(payment.paymentDate)}</p>
-            </article>
-          ))}
+          {showDashboardSkeleton
+            ? Array.from({ length: 3 }, (_, index) => (
+                <article className="grid gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4" key={index}>
+                  <div className="flex items-start justify-between gap-3">
+                    <SkeletonBlock className="h-4 w-32 rounded-full" />
+                    <SkeletonBlock className="h-8 w-20 rounded-2xl" />
+                  </div>
+                  <SkeletonBlock className="h-10 w-28 rounded-2xl" />
+                  <SkeletonBlock className="h-14 rounded-2xl" />
+                  <SkeletonBlock className="h-4 w-36 rounded-full" />
+                </article>
+              ))
+            : payments.map((payment) => (
+                <article className="grid gap-3 rounded-[1.2rem] border border-slate-200 bg-white p-3.5 shadow-lg shadow-slate-300/20 min-[380px]:rounded-[1.5rem] min-[380px]:p-4" key={payment._id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <strong className="min-w-0 break-words leading-tight">{payment.student?.name || "Deleted student"}</strong>
+                    <div className="shrink-0 rounded-2xl bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-700 min-[380px]:px-4 min-[380px]:py-2 min-[380px]:text-sm">{payment.method}</div>
+                  </div>
+                  <div className="break-words text-2xl font-black text-teal-700 min-[380px]:text-3xl sm:text-4xl">{formatCurrency(payment.amount)}</div>
+                  <div className="break-words rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700 sm:text-base">
+                    {formatDate(payment.membershipStartDate)} - {formatDate(payment.paidTill)}
+                  </div>
+                  <p className="m-0 break-words font-bold text-teal-700">Paid on {formatDate(payment.paymentDate)}</p>
+                </article>
+              ))}
         </div>
       </section>
       </>

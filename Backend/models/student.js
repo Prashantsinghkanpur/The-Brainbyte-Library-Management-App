@@ -90,5 +90,8 @@ const studentSchema = new mongoose.Schema({
 
 studentSchema.index({ libraryId: 1, memberId: 1 }, { unique: true });
 studentSchema.index({ libraryId: 1, hallName: 1, seatNumber: 1 }, { unique: true });
+studentSchema.index({ libraryId: 1, createdAt: -1 });
+studentSchema.index({ libraryId: 1, status: 1, paidTill: 1 });
+studentSchema.index({ libraryId: 1, hallName: 1, shift: 1, seatNumber: 1 });
 
 module.exports = mongoose.model("Student", studentSchema);

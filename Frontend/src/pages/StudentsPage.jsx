@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
+import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
+import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
 import { getStudentMessageActions } from "../lib/messages";
 
@@ -44,6 +46,8 @@ const initialFilters = {
   paymentStatus: "",
   sort: "recent"
 };
+
+const DIRECTORY_CACHE_MAX_AGE = 5 * 60 * 1000;
 
 const getTenDigitPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 10);
 const isTenDigitPhone = (value) => /^\d{10}$/.test(String(value || ""));
@@ -106,6 +110,26 @@ const getSeatDisplay = (hallName, seatNumber) => (
     ? `${hallName || "Hall"} - #${seatNumber}`
     : "Unallocated"
 );
+
+const buildStudentFilterQuery = (filters) => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) searchParams.set(key, value);
+  });
+
+  return searchParams.toString();
+};
+
+const buildFormerSearchQuery = (search) => {
+  const searchParams = new URLSearchParams();
+
+  if (search) {
+    searchParams.set("search", search);
+  }
+
+  return searchParams.toString();
+};
 
 function DirectoryIcon({ name, className = "h-4 w-4" }) {
   const iconProps = {
@@ -313,7 +337,7 @@ function StudentActionButton({ as: Component = "button", tone = "neutral", icon,
 export default function StudentsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { error, success, setError, setSuccess } = useTimedAlerts();
   const [students, setStudents] = useState([]);
   const [formerMembers, setFormerMembers] = useState([]);
@@ -335,24 +359,38 @@ export default function StudentsPage() {
   const routeSearchParams = new URLSearchParams(location.search);
   const requestedStudentId = location.state?.studentId || routeSearchParams.get("studentId") || "";
   const shouldOpenNewStudentForm = routeSearchParams.get("new") === "1";
+  const hasDirectorySnapshot = students.length > 0 || halls.length > 0;
+  const hasFormerMemberSnapshot = formerMembers.length > 0;
 
   const loadData = async (activeFilters = filters) => {
-    setLoading(true);
     setError("");
+    const searchQuery = buildStudentFilterQuery(activeFilters);
+    const cacheKey = buildCacheKey("students", user?.libraryId || "default", searchQuery || "all");
+    const cachedSnapshot = readCachedValue(cacheKey, {
+      maxAgeMs: DIRECTORY_CACHE_MAX_AGE,
+      allowExpired: true
+    });
+
+    if (cachedSnapshot) {
+      setStudents(cachedSnapshot.students || []);
+      setHalls(cachedSnapshot.halls || []);
+      setLoading(false);
+    } else if (!hasDirectorySnapshot) {
+      setLoading(true);
+    }
 
     try {
-      const searchParams = new URLSearchParams();
-      Object.entries(activeFilters).forEach(([key, value]) => {
-        if (value) searchParams.set(key, value);
-      });
-
       const [studentsData, hallsData] = await withMinimumDelay(Promise.all([
-        apiRequest(`/students${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
+        apiRequest(`/students${searchQuery ? `?${searchQuery}` : ""}`, { token }),
         apiRequest("/seats/halls", { token })
-      ]), 340);
+      ]), cachedSnapshot || hasDirectorySnapshot ? 0 : 340);
 
       setStudents(studentsData);
       setHalls(hallsData);
+      writeCachedValue(cacheKey, {
+        students: studentsData,
+        halls: hallsData
+      });
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -361,18 +399,28 @@ export default function StudentsPage() {
   };
 
   const loadFormerMembers = async (search = formerSearch) => {
-    setLoadingFormerMembers(true);
     setError("");
+    const searchQuery = buildFormerSearchQuery(search);
+    const cacheKey = buildCacheKey("former-members", user?.libraryId || "default", searchQuery || "all");
+    const cachedMembers = readCachedValue(cacheKey, {
+      maxAgeMs: DIRECTORY_CACHE_MAX_AGE,
+      allowExpired: true
+    });
+
+    if (cachedMembers) {
+      setFormerMembers(cachedMembers);
+      setLoadingFormerMembers(false);
+    } else if (!hasFormerMemberSnapshot) {
+      setLoadingFormerMembers(true);
+    }
 
     try {
-      const searchParams = new URLSearchParams();
-      if (search) searchParams.set("search", search);
-
       const data = await withMinimumDelay(
-        apiRequest(`/students/former-members${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, { token }),
-        280
+        apiRequest(`/students/former-members${searchQuery ? `?${searchQuery}` : ""}`, { token }),
+        cachedMembers || hasFormerMemberSnapshot ? 0 : 280
       );
       setFormerMembers(data);
+      writeCachedValue(cacheKey, data);
     } catch (loadError) {
       setError(getErrorMessage(loadError));
     } finally {
@@ -387,7 +435,7 @@ export default function StudentsPage() {
     if (shouldOpenNewStudentForm) {
       setShowStudentForm(true);
     }
-  }, [token]);
+  }, [token, user?.libraryId]);
 
   useEffect(() => {
     if (!requestedStudentId) return;
@@ -416,6 +464,9 @@ export default function StudentsPage() {
     event.preventDefault();
     loadFormerMembers();
   };
+
+  const showStudentsSkeleton = loading && students.length === 0;
+  const showFormerMembersSkeleton = loadingFormerMembers && formerMembers.length === 0;
 
   const applyQuickFilter = (nextValues) => {
     setFilters((current) => {
@@ -856,134 +907,162 @@ export default function StudentsPage() {
         </div>
 
         <div className="grid gap-4">
-          {students.map((student) => {
-            const actions = getStudentMessageActions(student);
-            const occupancy = getSeatOccupancyLabel(student.paidTill);
-
-            return (
-              <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-[0_14px_36px_-28px_rgba(15,23,42,0.35)]" key={student._id}>
-                <div className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-4 sm:px-4">
-                  <div className="relative shrink-0">
-                    <div className="grid h-14 w-14 place-items-center rounded-[1.15rem] bg-gradient-to-br from-sky-600 to-cyan-500 text-lg font-extrabold text-white shadow-[0_16px_30px_-20px_rgba(2,132,199,0.9)] sm:h-16 sm:w-16 sm:rounded-[1.3rem] sm:text-xl">
-                      {student.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <strong className="block break-words text-[1.2rem] font-black leading-tight text-slate-950 sm:text-[1.35rem]">{student.name}</strong>
-                        <p className="m-0 mt-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Member ID: #{student.memberId}</p>
+          {showStudentsSkeleton
+            ? Array.from({ length: 3 }, (_, index) => (
+                <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white p-4 shadow-[0_14px_36px_-28px_rgba(15,23,42,0.35)]" key={index}>
+                  <div className="flex items-start gap-3">
+                    <SkeletonBlock className="h-14 w-14 shrink-0 rounded-[1.15rem] sm:h-16 sm:w-16" />
+                    <div className="grid min-w-0 flex-1 gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="grid min-w-0 gap-2">
+                          <SkeletonBlock className="h-5 w-32 rounded-full" />
+                          <SkeletonBlock className="h-3 w-20 rounded-full" />
+                        </div>
+                        <SkeletonBlock className="h-6 w-16 rounded-full" />
                       </div>
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-700">
-                        {student.status}
+                      <SkeletonBlock className="h-3 w-40 rounded-full" />
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {Array.from({ length: 4 }, (_, tileIndex) => (
+                      <SkeletonBlock className="h-20 rounded-[1.25rem]" key={tileIndex} />
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {Array.from({ length: 5 }, (_, tagIndex) => (
+                      <SkeletonBlock className="h-8 w-24 rounded-full" key={tagIndex} />
+                    ))}
+                  </div>
+                </article>
+              ))
+            : students.map((student) => {
+                const actions = getStudentMessageActions(student);
+                const occupancy = getSeatOccupancyLabel(student.paidTill);
+
+                return (
+                  <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-[0_14px_36px_-28px_rgba(15,23,42,0.35)]" key={student._id}>
+                    <div className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-4 sm:px-4">
+                      <div className="relative shrink-0">
+                        <div className="grid h-14 w-14 place-items-center rounded-[1.15rem] bg-gradient-to-br from-sky-600 to-cyan-500 text-lg font-extrabold text-white shadow-[0_16px_30px_-20px_rgba(2,132,199,0.9)] sm:h-16 sm:w-16 sm:rounded-[1.3rem] sm:text-xl">
+                          {student.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <strong className="block break-words text-[1.2rem] font-black leading-tight text-slate-950 sm:text-[1.35rem]">{student.name}</strong>
+                            <p className="m-0 mt-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Member ID: #{student.memberId}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-700">
+                            {student.status}
+                          </span>
+                        </div>
+                        {student.parentName || student.parentPhone ? (
+                          <p className="m-0 mt-2 truncate text-xs font-semibold text-slate-500">
+                            Parent: {student.parentName || "-"}{student.parentPhone ? ` | ${student.parentPhone}` : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 px-3.5 py-3 sm:px-4">
+                      <StudentInfoTile icon="phone" label="Phone" value={student.phone} />
+                      <StudentInfoTile
+                        icon="status"
+                        label="Status"
+                        value={student.status}
+                        valueClassName={student.status === "Active" || student.status === "ACTIVE" ? "text-emerald-600" : ""}
+                      />
+                      <StudentInfoTile icon="calendar" label="Joined" value={formatDate(student.joinedDate)} />
+                      <StudentInfoTile icon="pin" label="Seat" value={getSeatDisplay(student.hallName, student.seatNumber)} />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
+                      <StudentTag icon="sparkles" tone="teal">{formatShiftLabel(student.shift)}</StudentTag>
+                      <StudentTag icon="wallet" tone="slate">{formatCurrency(student.feeAmount)}</StudentTag>
+                      <StudentTag icon="credit" tone="sky">{student.plan}</StudentTag>
+                      <StudentTag icon="calendar" tone="slate">
+                        {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
+                      </StudentTag>
+                      <span className={`inline-flex min-h-8 items-center rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] ${occupancyToneClasses[occupancy.tone]}`}>
+                        {occupancy.text}
                       </span>
                     </div>
-                    {student.parentName || student.parentPhone ? (
-                      <p className="m-0 mt-2 truncate text-xs font-semibold text-slate-500">
-                        Parent: {student.parentName || "-"}{student.parentPhone ? ` | ${student.parentPhone}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2 px-3.5 py-3 sm:px-4">
-                  <StudentInfoTile icon="phone" label="Phone" value={student.phone} />
-                  <StudentInfoTile
-                    icon="status"
-                    label="Status"
-                    value={student.status}
-                    valueClassName={student.status === "Active" || student.status === "ACTIVE" ? "text-emerald-600" : ""}
-                  />
-                  <StudentInfoTile icon="calendar" label="Joined" value={formatDate(student.joinedDate)} />
-                  <StudentInfoTile icon="pin" label="Seat" value={getSeatDisplay(student.hallName, student.seatNumber)} />
-                </div>
+                    <div className="grid gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        <StudentActionButton className="px-2" disabled={loadingStudentDetail} icon="eye" onClick={() => handleView(student)} type="button">
+                          {loadingStudentDetail ? "Opening..." : "View"}
+                        </StudentActionButton>
+                        <StudentActionButton className="px-2" icon="edit" onClick={() => handleEdit(student)} type="button">
+                          Edit
+                        </StudentActionButton>
+                        <StudentActionButton className="px-2" icon="wallet" onClick={() => handlePay(student)} tone="teal" type="button">
+                          Pay
+                        </StudentActionButton>
+                      </div>
 
-                <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
-                  <StudentTag icon="sparkles" tone="teal">{formatShiftLabel(student.shift)}</StudentTag>
-                  <StudentTag icon="wallet" tone="slate">{formatCurrency(student.feeAmount)}</StudentTag>
-                  <StudentTag icon="credit" tone="sky">{student.plan}</StudentTag>
-                  <StudentTag icon="calendar" tone="slate">
-                    {formatDate(student.membershipStartDate)} - {formatDate(student.paidTill)}
-                  </StudentTag>
-                  <span className={`inline-flex min-h-8 items-center rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] ${occupancyToneClasses[occupancy.tone]}`}>
-                    {occupancy.text}
-                  </span>
-                </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <StudentActionButton
+                          as="a"
+                          href={actions.welcomeLinks.whatsapp}
+                          icon="whatsapp"
+                          rel="noreferrer"
+                          target="_blank"
+                          tone="success"
+                        >
+                          WA Welcome
+                        </StudentActionButton>
+                        <StudentActionButton
+                          as="a"
+                          href={actions.welcomeLinks.sms}
+                          icon="message"
+                          tone="sky"
+                        >
+                          SMS Welcome
+                        </StudentActionButton>
+                        <StudentActionButton
+                          className="px-1"
+                          disabled={archivingId === student._id}
+                          icon="archive"
+                          onClick={() => handleArchiveStudent(student)}
+                          tone="danger"
+                          type="button"
+                        >
+                          {archivingId === student._id ? "..." : "Former"}
+                        </StudentActionButton>
+                      </div>
 
-                <div className="grid gap-2 border-t border-slate-100 px-3.5 py-3 sm:px-4">
-                  <div className="grid grid-cols-3 gap-2">
-                    <StudentActionButton className="px-2" disabled={loadingStudentDetail} icon="eye" onClick={() => handleView(student)} type="button">
-                      {loadingStudentDetail ? "Opening..." : "View"}
-                    </StudentActionButton>
-                    <StudentActionButton className="px-2" icon="edit" onClick={() => handleEdit(student)} type="button">
-                      Edit
-                    </StudentActionButton>
-                    <StudentActionButton className="px-2" icon="wallet" onClick={() => handlePay(student)} tone="teal" type="button">
-                      Pay
-                    </StudentActionButton>
-                  </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <StudentActionButton
+                          as="a"
+                          href={actions.reminderLinks.whatsapp}
+                          icon="whatsapp"
+                          rel="noreferrer"
+                          target="_blank"
+                          tone="success"
+                        >
+                          WA Reminder
+                        </StudentActionButton>
+                        <StudentActionButton as="a" href={actions.reminderLinks.sms} icon="message" tone="sky">
+                          SMS Reminder
+                        </StudentActionButton>
+                      </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <StudentActionButton
-                      as="a"
-                      href={actions.welcomeLinks.whatsapp}
-                      icon="whatsapp"
-                      rel="noreferrer"
-                      target="_blank"
-                      tone="success"
-                    >
-                      WA Welcome
-                    </StudentActionButton>
-                    <StudentActionButton
-                      as="a"
-                      href={actions.welcomeLinks.sms}
-                      icon="message"
-                      tone="sky"
-                    >
-                      SMS Welcome
-                    </StudentActionButton>
-                    <StudentActionButton
-                      className="px-1"
-                      disabled={archivingId === student._id}
-                      icon="archive"
-                      onClick={() => handleArchiveStudent(student)}
-                      tone="danger"
-                      type="button"
-                    >
-                      {archivingId === student._id ? "..." : "Former"}
-                    </StudentActionButton>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <StudentActionButton
-                      as="a"
-                      href={actions.reminderLinks.whatsapp}
-                      icon="whatsapp"
-                      rel="noreferrer"
-                      target="_blank"
-                      tone="success"
-                    >
-                      WA Reminder
-                    </StudentActionButton>
-                    <StudentActionButton as="a" href={actions.reminderLinks.sms} icon="message" tone="sky">
-                      SMS Reminder
-                    </StudentActionButton>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "welcome")} type="button">
-                      {copiedId === `${student._id}-welcome` ? "Copied Welcome" : "Copy Welcome"}
-                    </StudentActionButton>
-                    <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "reminder")} type="button">
-                      {copiedId === `${student._id}-reminder` ? "Copied Reminder" : "Copy Reminder"}
-                    </StudentActionButton>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+                      <div className="grid grid-cols-2 gap-2">
+                        <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "welcome")} type="button">
+                          {copiedId === `${student._id}-welcome` ? "Copied Welcome" : "Copy Welcome"}
+                        </StudentActionButton>
+                        <StudentActionButton icon="copy" onClick={() => handleCopyMessage(student, "reminder")} type="button">
+                          {copiedId === `${student._id}-reminder` ? "Copied Reminder" : "Copy Reminder"}
+                        </StudentActionButton>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
           {!loading && students.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No students found for the current filters.</div> : null}
         </div>
       </section>
@@ -1006,58 +1085,75 @@ export default function StudentsPage() {
         </div>
 
         <div className="grid gap-4">
-          {formerMembers.map((member) => (
-            <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={member._id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-700 text-lg font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{member.name.slice(0, 2).toUpperCase()}</div>
-                <div className="min-w-0 flex-1">
-                  <strong className="block break-words leading-tight">{member.name}</strong>
-                  <p className="m-0 mt-1 text-xs text-slate-500 sm:text-sm">MEMBER ID: #{member.memberId}</p>
-                </div>
-                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[11px] font-extrabold text-slate-600 sm:text-xs">FORMER</span>
-              </div>
+          {showFormerMembersSkeleton
+            ? Array.from({ length: 2 }, (_, index) => (
+                <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={index}>
+                  <div className="flex items-start gap-3">
+                    <SkeletonBlock className="h-14 w-14 shrink-0 rounded-2xl sm:h-20 sm:w-20 sm:rounded-3xl" />
+                    <div className="grid min-w-0 flex-1 gap-2">
+                      <SkeletonBlock className="h-5 w-28 rounded-full" />
+                      <SkeletonBlock className="h-3 w-20 rounded-full" />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 min-[430px]:grid-cols-2">
+                    {Array.from({ length: 6 }, (_, tileIndex) => (
+                      <SkeletonBlock className="h-20 rounded-3xl" key={tileIndex} />
+                    ))}
+                  </div>
+                </article>
+              ))
+            : formerMembers.map((member) => (
+                <article className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-lg shadow-slate-300/25 sm:rounded-[1.75rem] sm:p-5" key={member._id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-700 text-lg font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{member.name.slice(0, 2).toUpperCase()}</div>
+                    <div className="min-w-0 flex-1">
+                      <strong className="block break-words leading-tight">{member.name}</strong>
+                      <p className="m-0 mt-1 text-xs text-slate-500 sm:text-sm">MEMBER ID: #{member.memberId}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[11px] font-extrabold text-slate-600 sm:text-xs">FORMER</span>
+                  </div>
 
-              <div className="grid gap-3 min-[430px]:grid-cols-2">
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
-                  <p className="m-0 mt-1 break-words">{member.phone}</p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Former Seat</span>
-                  <p className="m-0 mt-1 break-words">{getSeatDisplay(member.hallName, member.seatNumber)}</p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
-                  <p className="m-0 mt-1 break-words">{member.parentName || "-"}</p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
-                  <p className="m-0 mt-1 break-words">{member.parentPhone || "-"}</p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
-                  <p className="m-0 mt-1 break-words">{formatDate(member.joinedDate)}</p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Moved To Former</span>
-                  <p className="m-0 mt-1 break-words">{formatDate(member.archivedAt)}</p>
-                </div>
-              </div>
+                  <div className="grid gap-3 min-[430px]:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
+                      <p className="m-0 mt-1 break-words">{member.phone}</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Former Seat</span>
+                      <p className="m-0 mt-1 break-words">{getSeatDisplay(member.hallName, member.seatNumber)}</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent</span>
+                      <p className="m-0 mt-1 break-words">{member.parentName || "-"}</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
+                      <p className="m-0 mt-1 break-words">{member.parentPhone || "-"}</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</span>
+                      <p className="m-0 mt-1 break-words">{formatDate(member.joinedDate)}</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                      <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Moved To Former</span>
+                      <p className="m-0 mt-1 break-words">{formatDate(member.archivedAt)}</p>
+                    </div>
+                  </div>
 
-              <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4">
-                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Record</span>
-                <p className="m-0 break-words">{member.plan} | {formatCurrency(member.feeAmount)} | {formatDate(member.membershipStartDate)} - {formatDate(member.paidTill)}</p>
-                <p className="m-0 break-words text-sm text-slate-500">{member.notes || "No notes added."}</p>
-              </div>
+                  <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Record</span>
+                    <p className="m-0 break-words">{member.plan} | {formatCurrency(member.feeAmount)} | {formatDate(member.membershipStartDate)} - {formatDate(member.paidTill)}</p>
+                    <p className="m-0 break-words text-sm text-slate-500">{member.notes || "No notes added."}</p>
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center justify-center rounded-full bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-600">{member.shift}</span>
-                <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 py-2 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingFormerId === member._id} onClick={() => handlePermanentDeleteFormerMember(member)} type="button">
-                  {deletingFormerId === member._id ? "Deleting..." : "Permanent Delete"}
-                </button>
-              </div>
-            </article>
-          ))}
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center justify-center rounded-full bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-600">{member.shift}</span>
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 py-2 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingFormerId === member._id} onClick={() => handlePermanentDeleteFormerMember(member)} type="button">
+                      {deletingFormerId === member._id ? "Deleting..." : "Permanent Delete"}
+                    </button>
+                  </div>
+                </article>
+              ))}
           {!loadingFormerMembers && formerMembers.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 p-7 text-center text-slate-500">No former members found.</div> : null}
         </div>
       </section>

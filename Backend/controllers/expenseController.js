@@ -8,6 +8,16 @@ const normalizeDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const parseLimit = (value) => {
+  const numericLimit = Number(value);
+
+  if (!Number.isInteger(numericLimit) || numericLimit <= 0) {
+    return null;
+  }
+
+  return Math.min(numericLimit, 200);
+};
+
 exports.addExpense = async (req, res) => {
   try {
     const { title, amount, category, expenseDate, notes } = req.body;
@@ -45,7 +55,7 @@ exports.addExpense = async (req, res) => {
 
 exports.getExpenses = async (req, res) => {
   try {
-    const { search, category, year, month, sort = "latest" } = req.query;
+    const { search, category, year, month, sort = "latest", limit } = req.query;
     const rangeResult = buildRangeMatch(year, month, "expenseDate");
 
     if (rangeResult.error) {
@@ -77,7 +87,14 @@ exports.getExpenses = async (req, res) => {
       amountLow: { amount: 1, expenseDate: -1 }
     };
 
-    const expenses = await Expense.find(query).sort(sortMap[sort] || sortMap.latest);
+    const queryBuilder = Expense.find(query).sort(sortMap[sort] || sortMap.latest).lean();
+    const resolvedLimit = parseLimit(limit);
+
+    if (resolvedLimit) {
+      queryBuilder.limit(resolvedLimit);
+    }
+
+    const expenses = await queryBuilder;
     res.json(expenses);
   } catch (err) {
     res.status(500).json({ error: err.message });
