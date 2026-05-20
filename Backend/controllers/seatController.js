@@ -50,18 +50,8 @@ const ensureLibrarySeatsVisible = async (libraryId, halls) => {
   const library = await Library.findById(libraryId);
   const librarySeatCount = Number(library?.seatCount || 0);
 
-  if (librarySeatCount <= 0) {
+  if (librarySeatCount <= 0 || halls.length === 0) {
     return halls;
-  }
-
-  if (halls.length === 0) {
-    const mainHall = await Hall.create({
-      libraryId,
-      name: "Main Hall",
-      totalSeats: librarySeatCount
-    });
-
-    return [mainHall];
   }
 
   const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);

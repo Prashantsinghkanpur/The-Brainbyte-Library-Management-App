@@ -572,13 +572,7 @@ exports.updateSettingsProfile = async (req, res) => {
       }).sort({ createdAt: 1 });
       const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
 
-      if (halls.length === 0) {
-        await Hall.create({
-          libraryId: library._id,
-          name: "Main Hall",
-          totalSeats: normalizedSeatCount
-        });
-      } else if (totalHallSeats < normalizedSeatCount) {
+      if (halls.length > 0 && totalHallSeats < normalizedSeatCount) {
         const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
         mainHall.totalSeats += normalizedSeatCount - totalHallSeats;
         await mainHall.save();
@@ -1329,15 +1323,7 @@ exports.getPublicSeatSnapshot = async (req, res) => {
     // Ensure library seats visibility like seatController does
     const librarySeatCount = Number(library?.seatCount || 0);
     if (librarySeatCount > 0) {
-      if (halls.length === 0) {
-        halls = [
-          await Hall.create({
-            libraryId,
-            name: "Main Hall",
-            totalSeats: librarySeatCount
-          })
-        ];
-      } else {
+      if (halls.length > 0) {
         const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
         if (totalHallSeats < librarySeatCount) {
           const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];

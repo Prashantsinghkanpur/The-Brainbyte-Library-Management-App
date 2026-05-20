@@ -171,6 +171,7 @@ export default function SeatsPage() {
   const hasGridSnapshot = gridData.seats.length > 0 || gridData.halls.length > 0 || Boolean(gridData.selectedHall);
   const editingHall = gridData.halls.find((hall) => hall._id === editingHallId) || gridData.selectedHall;
   const showStudentDetailModal = Boolean(viewingStudent) || loadingStudentDetail;
+  const activeHallFilter = filters.hallName || gridData.selectedHall?.name || "";
 
   const loadGrid = async (nextFilters = filters) => {
     setError("");
@@ -572,8 +573,10 @@ export default function SeatsPage() {
         </div>
 
         <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
-          <select className="min-h-11 w-full rounded-3xl border-0 bg-teal-700 px-4 text-sm font-bold text-white sm:min-h-12 sm:w-auto sm:px-5 sm:text-base" name="hallName" value={filters.hallName} onChange={handleFilterChange}>
-            <option value="">Main Hall</option>
+          <select className="min-h-11 w-full rounded-3xl border-0 bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-12 sm:w-auto sm:px-5 sm:text-base" name="hallName" value={activeHallFilter} onChange={handleFilterChange} disabled={gridData.halls.length === 0}>
+            {gridData.halls.length === 0 ? (
+              <option value="">No halls added</option>
+            ) : null}
             {gridData.halls.map((hall) => (
               <option key={hall._id} value={hall.name}>
                 {hall.name}
@@ -648,9 +651,11 @@ export default function SeatsPage() {
         <div className="flex flex-col gap-3 rounded-[1.35rem] border border-[#d9e7ef] bg-white p-3.5 shadow-xl shadow-slate-300/25 min-[380px]:p-4 sm:flex-row sm:items-center sm:justify-between sm:rounded-[1.6rem] sm:p-5">
           <div className="min-w-0">
             <p className="m-0 text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">Seat Layout</p>
-            <h3 className="m-0 mt-1 text-lg font-black text-slate-950 min-[380px]:text-xl">{gridData.selectedHall?.name || "Main Hall"}</h3>
+            <h3 className="m-0 mt-1 text-lg font-black text-slate-950 min-[380px]:text-xl">{gridData.selectedHall?.name || "No Hall Selected"}</h3>
             <p className="m-0 mt-1 text-sm font-bold text-slate-500">
-              {gridData.summary.totalSeats ?? 0} seats mapped for this hall
+              {gridData.selectedHall
+                ? `${gridData.summary.totalSeats ?? 0} seats mapped for this hall`
+                : "Add a hall to start mapping seats"}
             </p>
           </div>
           <button
