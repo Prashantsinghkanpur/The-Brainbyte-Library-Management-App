@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import AppModal from "../components/AppModal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useLocation, useNavigate } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
 import SkeletonBlock from "../components/SkeletonBlock";
@@ -8,7 +10,7 @@ import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
 import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
-import { getStudentMessageActions } from "../lib/messages";
+import { getPaymentMessageActions, getStudentMessageActions } from "../lib/messages";
 
 const toDateInputDate = (date) => {
   const year = date.getFullYear();
@@ -352,6 +354,9 @@ export default function StudentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [archivingId, setArchivingId] = useState("");
   const [deletingFormerId, setDeletingFormerId] = useState("");
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [formerDeleteTarget, setFormerDeleteTarget] = useState(null);
+  const [sendingReceiptId, setSendingReceiptId] = useState("");
   const [viewingStudent, setViewingStudent] = useState(null);
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
   const [copiedId, setCopiedId] = useState("");
@@ -361,6 +366,7 @@ export default function StudentsPage() {
   const shouldOpenNewStudentForm = routeSearchParams.get("new") === "1";
   const hasDirectorySnapshot = students.length > 0 || halls.length > 0;
   const hasFormerMemberSnapshot = formerMembers.length > 0;
+  const showStudentDetailModal = Boolean(viewingStudent) || (Boolean(requestedStudentId) && loadingStudentDetail);
 
   const loadData = async (activeFilters = filters) => {
     setError("");
@@ -523,6 +529,7 @@ export default function StudentsPage() {
   const handleView = async (student) => {
     setLoadingStudentDetail(true);
     setError("");
+    setViewingStudent(null);
 
     try {
       const studentDetail = await apiRequest(`/students/${student._id}`, { token });
@@ -539,6 +546,7 @@ export default function StudentsPage() {
 
     setLoadingStudentDetail(true);
     setError("");
+    setViewingStudent(null);
 
     try {
       const studentDetail = await apiRequest(`/students/${studentId}`, { token });
@@ -655,18 +663,22 @@ export default function StudentsPage() {
     }
   };
 
-  const handleArchiveStudent = async (student) => {
-    const confirmed = window.confirm(`Move ${student.name} to former members and free ${getSeatDisplay(student.hallName, student.seatNumber)}?`);
+  const openArchiveDialog = (student) => {
+    if (!student?._id) return;
+    setArchiveTarget(student);
+  };
 
-    if (!confirmed) return;
+  const handleArchiveStudent = async () => {
+    if (!archiveTarget?._id) return;
 
-    setArchivingId(student._id);
+    setArchivingId(archiveTarget._id);
     setError("");
     setSuccess("");
 
     try {
-      await apiRequest(`/students/${student._id}`, { method: "DELETE", token });
+      await apiRequest(`/students/${archiveTarget._id}`, { method: "DELETE", token });
       setSuccess("Student moved to former members. Seat is now vacant.");
+      setArchiveTarget(null);
       setViewingStudent(null);
       await Promise.all([loadData(), loadFormerMembers()]);
     } catch (archiveError) {
@@ -676,18 +688,22 @@ export default function StudentsPage() {
     }
   };
 
-  const handlePermanentDeleteFormerMember = async (member) => {
-    const confirmed = window.confirm(`Permanently delete former member ${member.name}? This cannot be undone.`);
+  const openFormerDeleteDialog = (member) => {
+    if (!member?._id) return;
+    setFormerDeleteTarget(member);
+  };
 
-    if (!confirmed) return;
+  const handlePermanentDeleteFormerMember = async () => {
+    if (!formerDeleteTarget?._id) return;
 
-    setDeletingFormerId(member._id);
+    setDeletingFormerId(formerDeleteTarget._id);
     setError("");
     setSuccess("");
 
     try {
-      await apiRequest(`/students/former-members/${member._id}`, { method: "DELETE", token });
+      await apiRequest(`/students/former-members/${formerDeleteTarget._id}`, { method: "DELETE", token });
       setSuccess("Former member permanently deleted.");
+      setFormerDeleteTarget(null);
       await loadFormerMembers();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -700,9 +716,68 @@ export default function StudentsPage() {
     navigate(`/payments?studentId=${student._id}`);
   };
 
+  const handleSendFeeReceipt = async (student) => {
+    if (!student?._id) return;
+
+    setSendingReceiptId(student._id);
+    setError("");
+    setSuccess("");
+    const receiptPopup = window.open("", "_blank");
+
+    try {
+      const paymentData = await apiRequest(`/payments?studentId=${student._id}&sort=latest&limit=1`, { token });
+      const latestPayment = paymentData?.[0];
+
+      if (!latestPayment) {
+        receiptPopup?.close();
+        setError("No payment record found for this student yet.");
+        return;
+      }
+
+      if (!student.phone) {
+        receiptPopup?.close();
+        setError("Student phone number is missing, so receipt could not be opened.");
+        return;
+      }
+
+      const paymentMessage = getPaymentMessageActions(student, latestPayment);
+      if (receiptPopup) {
+        receiptPopup.location.href = paymentMessage.feeSubmissionLinks.whatsapp;
+      } else {
+        window.open(paymentMessage.feeSubmissionLinks.whatsapp, "_blank", "noopener,noreferrer");
+      }
+      setSuccess("Fee receipt message opened in WhatsApp.");
+    } catch (receiptError) {
+      receiptPopup?.close();
+      setError(getErrorMessage(receiptError));
+    } finally {
+      setSendingReceiptId("");
+    }
+  };
+
   return (
     <div className="grid gap-5 sm:gap-6">
       <FloatingToastStack error={error} success={success} />
+      <ConfirmDialog
+        isLoading={Boolean(archivingId)}
+        isOpen={Boolean(archiveTarget)}
+        title={`Move ${archiveTarget?.name || "student"} to former members?`}
+        description={`This will archive ${archiveTarget?.name || "this student"} and free ${getSeatDisplay(archiveTarget?.hallName, archiveTarget?.seatNumber)} for a new admission.`}
+        confirmLabel="Move to Former"
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleArchiveStudent}
+        tone="danger"
+      />
+      <ConfirmDialog
+        isLoading={Boolean(deletingFormerId)}
+        isOpen={Boolean(formerDeleteTarget)}
+        title={`Delete ${formerDeleteTarget?.name || "former member"} forever?`}
+        description="This permanently removes the former member record. This action cannot be undone."
+        confirmLabel="Permanent Delete"
+        onClose={() => setFormerDeleteTarget(null)}
+        onConfirm={handlePermanentDeleteFormerMember}
+        tone="danger"
+      />
 
       <section className="grid gap-5 pt-2 sm:pt-4">
         <div className="flex items-start justify-between gap-4">
@@ -772,20 +847,43 @@ export default function StudentsPage() {
         </div>
       </section>
 
-      {viewingStudent ? (
-        <>
-        <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={() => setViewingStudent(null)} type="button" aria-label="Close student details" />
-        <section className="fixed left-1/2 top-6 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER #{viewingStudent.memberId}</p>
-              <h3 className="m-0 mt-1 break-words text-2xl font-extrabold">{viewingStudent.name}</h3>
-            </div>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => setViewingStudent(null)} type="button">
-              Close
-            </button>
-          </div>
+      {showStudentDetailModal ? (
+        <AppModal
+          eyebrow={viewingStudent ? `Member #${viewingStudent.memberId}` : "Loading Member"}
+          isOpen={showStudentDetailModal}
+          maxWidthClassName="max-w-[760px]"
+          onClose={() => {
+            setViewingStudent(null);
+            clearStudentRouteRequest();
+          }}
+          title={viewingStudent?.name || "Opening student details"}
+        >
+          {!viewingStudent ? (
+            <>
+              <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:gap-4">
+                <SkeletonBlock className="h-16 w-16 shrink-0 rounded-2xl sm:h-20 sm:w-20 sm:rounded-3xl" />
+                <div className="grid min-w-0 flex-1 gap-2">
+                  <SkeletonBlock className="h-5 w-28 rounded-full" />
+                  <SkeletonBlock className="h-4 w-40 rounded-full" />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <SkeletonBlock className="h-8 w-20 rounded-full" />
+                    <SkeletonBlock className="h-8 w-24 rounded-full" />
+                    <SkeletonBlock className="h-8 w-32 rounded-full" />
+                  </div>
+                </div>
+              </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Array.from({ length: 10 }, (_, index) => (
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4" key={index}>
+                    <SkeletonBlock className="h-3 w-20 rounded-full" />
+                    <SkeletonBlock className="mt-3 h-5 w-28 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+          <>
           <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:gap-4">
             <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-sky-600 text-xl font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">{viewingStudent.name.slice(0, 2).toUpperCase()}</div>
             <div className="min-w-0">
@@ -883,15 +981,16 @@ export default function StudentsPage() {
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => handleEdit(viewingStudent)} type="button">
               Edit Student
             </button>
-            <button className="min-h-12 rounded-full bg-red-600 px-5 py-3 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={archivingId === viewingStudent._id} onClick={() => handleArchiveStudent(viewingStudent)} type="button">
+            <button className="min-h-12 rounded-full bg-red-600 px-5 py-3 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={archivingId === viewingStudent._id} onClick={() => openArchiveDialog(viewingStudent)} type="button">
               {archivingId === viewingStudent._id ? "Moving..." : "Move to Former"}
             </button>
             <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => setViewingStudent(null)} type="button">
               Back to List
             </button>
           </div>
-        </section>
-        </>
+          </>
+          )}
+        </AppModal>
       ) : null}
 
       {directoryView === "active" ? (
@@ -1025,13 +1124,13 @@ export default function StudentsPage() {
                         </StudentActionButton>
                         <StudentActionButton
                           className="px-1"
-                          disabled={archivingId === student._id}
-                          icon="archive"
-                          onClick={() => handleArchiveStudent(student)}
-                          tone="danger"
+                          disabled={sendingReceiptId === student._id}
+                          icon="wallet"
+                          onClick={() => handleSendFeeReceipt(student)}
+                          tone="teal"
                           type="button"
                         >
-                          {archivingId === student._id ? "..." : "Former"}
+                          {sendingReceiptId === student._id ? "..." : "Receipt"}
                         </StudentActionButton>
                       </div>
 
@@ -1148,7 +1247,7 @@ export default function StudentsPage() {
 
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center justify-center rounded-full bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-600">{member.shift}</span>
-                    <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 py-2 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingFormerId === member._id} onClick={() => handlePermanentDeleteFormerMember(member)} type="button">
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 py-2 font-extrabold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingFormerId === member._id} onClick={() => openFormerDeleteDialog(member)} type="button">
                       {deletingFormerId === member._id ? "Deleting..." : "Permanent Delete"}
                     </button>
                   </div>
@@ -1167,19 +1266,13 @@ export default function StudentsPage() {
       ) : null}
 
       {directoryView === "active" && showStudentForm ? (
-      <>
-      <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={closeStudentForm} type="button" aria-label="Close student form" />
-      <section className="fixed left-1/2 top-6 z-50 grid max-h-[88vh] w-[min(94vw,760px)] -translate-x-1/2 gap-4 overflow-auto rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">MEMBER FORM</p>
-            <h3 className="m-0 mt-1 text-2xl font-extrabold">{editingId ? "Edit Student" : "Add Student"}</h3>
-          </div>
-          <button className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={closeStudentForm} type="button">
-            Close
-          </button>
-        </div>
-
+      <AppModal
+        eyebrow="Member Form"
+        isOpen={showStudentForm}
+        maxWidthClassName="max-w-[760px]"
+        onClose={closeStudentForm}
+        title={editingId ? "Edit Student" : "Add Student"}
+      >
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
@@ -1267,8 +1360,7 @@ export default function StudentsPage() {
             </button>
           </div>
         </form>
-      </section>
-      </>
+      </AppModal>
       ) : null}
     </div>
   );

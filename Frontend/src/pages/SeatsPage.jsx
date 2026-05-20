@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import AppModal from "../components/AppModal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import FloatingToastStack from "../components/FloatingToastStack";
 import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
@@ -7,7 +8,7 @@ import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
 import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
-import { getErrorMessage } from "../lib/format";
+import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
 const initialHallForm = {
   name: "",
@@ -46,6 +47,42 @@ const buildSeatFilterQuery = (filters) => {
   });
 
   return searchParams.toString();
+};
+
+const getSeatDisplay = (hallName, seatNumber) => (
+  Number.isInteger(Number(seatNumber)) && Number(seatNumber) > 0
+    ? `${hallName || "Hall"} - #${seatNumber}`
+    : "Unallocated"
+);
+
+const getSeatOccupancyLabel = (paidTill) => {
+  if (!paidTill) return { text: "No paid date added", tone: "slate" };
+
+  const endDate = new Date(paidTill);
+
+  if (Number.isNaN(endDate.getTime())) return { text: "No paid date added", tone: "slate" };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+
+  const days = Math.round((endDate - today) / 86400000);
+
+  if (days < 0) {
+    const overdueDays = Math.abs(days);
+    return { text: `Overdue by ${overdueDays} day${overdueDays === 1 ? "" : "s"}`, tone: "red" };
+  }
+
+  if (days === 0) return { text: "Seat occupied until today", tone: "amber" };
+
+  return { text: `${days} day${days === 1 ? "" : "s"} left for occupied seat`, tone: "green" };
+};
+
+const occupancyToneClasses = {
+  amber: "bg-amber-50 text-amber-700",
+  green: "bg-emerald-50 text-emerald-700",
+  red: "bg-red-50 text-red-700",
+  slate: "bg-slate-100 text-slate-600"
 };
 
 const getSeatStatusMeta = (student) => {
@@ -117,7 +154,6 @@ function SeatBadge({ student }) {
 }
 
 export default function SeatsPage() {
-  const navigate = useNavigate();
   const { token, user } = useAuth();
   const { error, success, setError, setSuccess } = useTimedAlerts();
   const [gridData, setGridData] = useState({ halls: [], summary: {}, seats: [], selectedHall: null });
@@ -128,7 +164,13 @@ export default function SeatsPage() {
   const [deletingHallId, setDeletingHallId] = useState("");
   const [showHallForm, setShowHallForm] = useState(false);
   const [loadingGrid, setLoadingGrid] = useState(true);
+  const [hallDeleteTarget, setHallDeleteTarget] = useState(null);
+  const [viewingStudent, setViewingStudent] = useState(null);
+  const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
+  const activeStudentRequestRef = useRef(0);
   const hasGridSnapshot = gridData.seats.length > 0 || gridData.halls.length > 0 || Boolean(gridData.selectedHall);
+  const editingHall = gridData.halls.find((hall) => hall._id === editingHallId) || gridData.selectedHall;
+  const showStudentDetailModal = Boolean(viewingStudent) || loadingStudentDetail;
 
   const loadGrid = async (nextFilters = filters) => {
     setError("");
@@ -199,9 +241,6 @@ export default function SeatsPage() {
   const openHallForm = () => {
     resetHallForm();
     setShowHallForm(true);
-    window.setTimeout(() => {
-      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
   const openAddSeatsForm = () => {
@@ -216,9 +255,6 @@ export default function SeatsPage() {
     }
 
     setShowHallForm(true);
-    window.setTimeout(() => {
-      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
   const handleHallSubmit = async (event) => {
@@ -261,30 +297,28 @@ export default function SeatsPage() {
     setEditingHallId(hall._id);
     setHallForm({ name: hall.name, totalSeats: hall.totalSeats });
     setShowHallForm(true);
-    window.setTimeout(() => {
-      document.getElementById("hall-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   };
 
-  const handleHallDelete = async (hall) => {
+  const openHallDeleteDialog = (hall) => {
     if (!hall?._id) return;
+    setHallDeleteTarget(hall);
+  };
 
-    const confirmed = window.confirm(`Delete hall "${hall.name}"? This will only work if no students are assigned to it.`);
+  const handleHallDelete = async () => {
+    if (!hallDeleteTarget?._id) return;
 
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingHallId(hall._id);
+    setDeletingHallId(hallDeleteTarget._id);
     setError("");
     setSuccess("");
 
     try {
-      await apiRequest(`/seats/halls/${hall._id}`, { method: "DELETE", token });
+      await apiRequest(`/seats/halls/${hallDeleteTarget._id}`, { method: "DELETE", token });
       setSuccess("Hall deleted successfully.");
       setShowHallForm(false);
+      setHallDeleteTarget(null);
       resetHallForm();
-      loadGrid();
+      setFilters((current) => ({ ...current, hallName: "" }));
+      loadGrid({ ...filters, hallName: "" });
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
     } finally {
@@ -292,15 +326,188 @@ export default function SeatsPage() {
     }
   };
 
-  const handleSeatOpenProfile = (seat) => {
-    if (!seat?.student?.id) return;
-    navigate("/students", { state: { studentId: seat.student.id } });
+  const closeStudentDetailModal = () => {
+    activeStudentRequestRef.current += 1;
+    setLoadingStudentDetail(false);
+    setViewingStudent(null);
   };
+
+  const handleSeatOpenProfile = async (seat) => {
+    if (!seat?.student?.id) return;
+
+    const requestId = activeStudentRequestRef.current + 1;
+    activeStudentRequestRef.current = requestId;
+
+    setError("");
+    setViewingStudent(null);
+    setLoadingStudentDetail(true);
+
+    try {
+      const studentDetail = await apiRequest(`/students/${seat.student.id}`, { token });
+
+      if (activeStudentRequestRef.current !== requestId) {
+        return;
+      }
+
+      setViewingStudent(studentDetail);
+    } catch (viewError) {
+      if (activeStudentRequestRef.current === requestId) {
+        setError(getErrorMessage(viewError));
+      }
+    } finally {
+      if (activeStudentRequestRef.current === requestId) {
+        setLoadingStudentDetail(false);
+      }
+    }
+  };
+
   const showSeatGridSkeleton = loadingGrid && gridData.seats.length === 0;
 
   return (
     <div className="grid gap-3 sm:gap-6">
       <FloatingToastStack error={error} success={success} />
+      <ConfirmDialog
+        isLoading={Boolean(deletingHallId)}
+        isOpen={Boolean(hallDeleteTarget)}
+        title={`Delete ${hallDeleteTarget?.name || "hall"}?`}
+        description={`This will remove the hall only if no students are assigned to it. Delete ${hallDeleteTarget?.name || "this hall"} now?`}
+        confirmLabel="Delete Hall"
+        onClose={() => setHallDeleteTarget(null)}
+        onConfirm={handleHallDelete}
+        tone="danger"
+      />
+      <AppModal
+        eyebrow={viewingStudent ? `Member #${viewingStudent.memberId}` : "Loading Member"}
+        isOpen={showStudentDetailModal}
+        maxWidthClassName="max-w-[760px]"
+        onClose={closeStudentDetailModal}
+        title={viewingStudent?.name || "Opening student details"}
+      >
+        {!viewingStudent ? (
+          <>
+            <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:gap-4">
+              <SkeletonBlock className="h-16 w-16 shrink-0 rounded-2xl sm:h-20 sm:w-20 sm:rounded-3xl" />
+              <div className="grid min-w-0 flex-1 gap-2">
+                <SkeletonBlock className="h-5 w-28 rounded-full" />
+                <SkeletonBlock className="h-4 w-40 rounded-full" />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <SkeletonBlock className="h-8 w-20 rounded-full" />
+                  <SkeletonBlock className="h-8 w-24 rounded-full" />
+                  <SkeletonBlock className="h-8 w-32 rounded-full" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Array.from({ length: 10 }, (_, index) => (
+                <div className="rounded-3xl border border-slate-200 bg-white p-4" key={index}>
+                  <SkeletonBlock className="h-3 w-20 rounded-full" />
+                  <SkeletonBlock className="mt-3 h-5 w-28 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:gap-4">
+              <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-sky-600 text-xl font-extrabold text-white sm:h-20 sm:w-20 sm:rounded-3xl sm:text-2xl">
+                {viewingStudent.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <strong>{viewingStudent.plan}</strong>
+                <p className="m-0 break-words text-sm text-slate-500 sm:text-base">
+                  {getSeatDisplay(viewingStudent.hallName, viewingStudent.seatNumber)} | {getSeatShiftLabel(viewingStudent.shift)}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">{viewingStudent.status}</span>
+                  <span className="inline-flex items-center justify-center rounded-full bg-teal-50 px-3 py-2 text-xs font-extrabold text-teal-700">
+                    {formatCurrency(viewingStudent.feeAmount)}
+                  </span>
+                  <span className={`inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-extrabold ${occupancyToneClasses[getSeatOccupancyLabel(viewingStudent.paidTill).tone]}`}>
+                    {getSeatOccupancyLabel(viewingStudent.paidTill).text}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.phone}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Email</span>
+                <p className="m-0 mt-1 break-all">{viewingStudent.email || "-"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Name</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.parentName || "-"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Parent Number</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.parentPhone || "-"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Plan</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.plan}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Fee Amount</span>
+                <p className="m-0 mt-1 break-words">{formatCurrency(viewingStudent.feeAmount)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat</span>
+                <p className="m-0 mt-1 break-words">{getSeatDisplay(viewingStudent.hallName, viewingStudent.seatNumber)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Shift</span>
+                <p className="m-0 mt-1 break-words">{getSeatShiftLabel(viewingStudent.shift)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:col-span-2">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Address</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.address || "-"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Status</span>
+                <p className="m-0 mt-1 break-words">{viewingStudent.status}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined Date</span>
+                <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.joinedDate)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Membership Start</span>
+                <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.membershipStartDate)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Paid Till</span>
+                <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.paidTill)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Seat Occupancy</span>
+                <p className="m-0 mt-1 break-words">{getSeatOccupancyLabel(viewingStudent.paidTill).text}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Created</span>
+                <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.createdAt)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Last Updated</span>
+                <p className="m-0 mt-1 break-words">{formatDate(viewingStudent.updatedAt)}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">System ID</span>
+                <p className="m-0 mt-1 break-all">{viewingStudent._id}</p>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Notes</span>
+              <p className="m-0 mt-1 break-words">{viewingStudent.notes || "No notes added."}</p>
+            </div>
+          </>
+        )}
+      </AppModal>
 
       <section className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-start sm:justify-between sm:pt-4">
         <div className="min-w-0">
@@ -362,7 +569,7 @@ export default function SeatsPage() {
             </button>
             <button
               className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:text-base"
-              onClick={() => handleHallDelete(gridData.selectedHall)}
+              onClick={() => openHallDeleteDialog(gridData.selectedHall)}
               type="button"
               disabled={!gridData.selectedHall || deletingHallId === gridData.selectedHall?._id}
             >
@@ -514,11 +721,16 @@ export default function SeatsPage() {
         </div>
       </section>
 
-      {showHallForm ? (
-      <section id="hall-form-section" className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="m-0 text-2xl font-extrabold">{editingHallId ? "Edit Seats" : "Add Seats"}</h3>
-        </div>
+      <AppModal
+        eyebrow={editingHallId ? "Hall Settings" : "New Hall"}
+        isOpen={showHallForm}
+        maxWidthClassName="max-w-[620px]"
+        onClose={() => {
+          resetHallForm();
+          setShowHallForm(false);
+        }}
+        title={editingHallId ? "Edit Seats" : "Add Seats"}
+      >
         <form className="grid gap-4" onSubmit={handleHallSubmit}>
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
@@ -538,7 +750,7 @@ export default function SeatsPage() {
             {editingHallId ? (
               <button
                 className="inline-flex min-h-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => handleHallDelete(gridData.selectedHall)}
+                onClick={() => openHallDeleteDialog(editingHall)}
                 type="button"
                 disabled={deletingHallId === editingHallId}
               >
@@ -547,8 +759,7 @@ export default function SeatsPage() {
             ) : null}
           </div>
         </form>
-      </section>
-      ) : null}
+      </AppModal>
     </div>
   );
 }

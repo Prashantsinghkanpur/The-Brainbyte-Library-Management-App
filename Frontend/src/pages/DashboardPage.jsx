@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AppModal from "../components/AppModal";
 import FloatingToastStack from "../components/FloatingToastStack";
 import SkeletonBlock from "../components/SkeletonBlock";
 import { useAuth } from "../context/AuthContext";
@@ -431,8 +432,6 @@ export default function DashboardPage() {
         </button>
       </section>
 
-      {activePromo ? <button className="fixed inset-0 z-40 cursor-default bg-slate-950/50" onClick={() => setActivePromo("")} type="button" aria-label="Close popup" /> : null}
-
       <section>
         <h3 className="mb-3 mt-0 text-xl font-extrabold min-[380px]:mb-4 min-[380px]:text-2xl">Overview</h3>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -491,19 +490,15 @@ export default function DashboardPage() {
         <span className="ml-auto hidden shrink-0 text-3xl text-slate-400 min-[380px]:block sm:text-4xl">&gt;</span>
       </button>
 
-      {activePromo ? (
-        <section className="fixed left-1/2 top-3 z-50 grid max-h-[88vh] w-[min(96vw,560px)] -translate-x-1/2 gap-3 overflow-auto rounded-[1.25rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:top-4 min-[380px]:w-[min(94vw,560px)] min-[380px]:gap-4 min-[380px]:rounded-[1.5rem] min-[380px]:p-4 sm:top-6 sm:rounded-[1.75rem] sm:p-5">
-          <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
-            <div className="min-w-0">
-              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">{popupEyebrow}</p>
-              <h3 className="m-0 break-words text-xl font-extrabold min-[380px]:text-2xl">{popupTitle}</h3>
-            </div>
-            <button className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 min-[430px]:text-base" onClick={() => setActivePromo("")} type="button">
-              Close
-            </button>
-          </div>
-
-          {activePromo === "refer" ? (
+      <AppModal
+        eyebrow={popupEyebrow}
+        isOpen={Boolean(activePromo)}
+        maxWidthClassName={activePromo === "member" || activePromo === "library" ? "max-w-[760px]" : "max-w-[560px]"}
+        onClose={() => setActivePromo("")}
+        title={popupTitle}
+      >
+        {activePromo ? (
+          activePromo === "refer" ? (
             <>
               <div className="grid gap-1 rounded-3xl border border-indigo-100 bg-indigo-50 p-4">
                 <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-slate-500">Referral Code</span>
@@ -778,9 +773,9 @@ export default function DashboardPage() {
                 {creatingMember ? "Saving..." : "Add Member"}
               </button>
             </form>
-          )}
-        </section>
-      ) : null}
+          )
+        ) : null}
+      </AppModal>
 
       <button className="fixed bottom-24 right-3 z-40 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-teal-700 px-4 text-sm font-extrabold text-white shadow-2xl shadow-teal-700/30 transition hover:-translate-y-0.5 min-[380px]:right-4 min-[380px]:min-h-14 min-[380px]:px-5 min-[380px]:text-base lg:bottom-6" onClick={() => navigate("/students?new=1")} type="button">
 

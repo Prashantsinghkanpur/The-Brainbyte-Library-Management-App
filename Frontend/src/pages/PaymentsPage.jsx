@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useLocation } from "react-router-dom";
 import FloatingToastStack from "../components/FloatingToastStack";
 import { useAuth } from "../context/AuthContext";
@@ -73,6 +74,7 @@ export default function PaymentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState("");
   const [deletingPaymentId, setDeletingPaymentId] = useState("");
+  const [paymentDeleteTarget, setPaymentDeleteTarget] = useState(null);
   const [autoSendReceipt, setAutoSendReceipt] = useState(true);
   const [loadingPayments, setLoadingPayments] = useState(true);
   const preselectedStudentId = useMemo(() => {
@@ -257,29 +259,31 @@ export default function PaymentsPage() {
     setSuccess("");
   };
 
-  const handleDeletePayment = async (payment) => {
-    const confirmed = window.confirm(`Delete payment of ${formatCurrency(payment.amount)} for ${payment.student?.name || "this student"}?`);
+  const openDeletePaymentDialog = (payment) => {
+    if (!payment?._id) return;
+    setPaymentDeleteTarget(payment);
+  };
 
-    if (!confirmed) {
-      return;
-    }
+  const handleDeletePayment = async () => {
+    if (!paymentDeleteTarget?._id) return;
 
-    setDeletingPaymentId(payment._id);
+    setDeletingPaymentId(paymentDeleteTarget._id);
     setError("");
     setSuccess("");
 
     try {
-      await apiRequest(`/payments/${payment._id}`, {
+      await apiRequest(`/payments/${paymentDeleteTarget._id}`, {
         method: "DELETE",
         token
       });
 
-      if (editingPaymentId === payment._id) {
+      if (editingPaymentId === paymentDeleteTarget._id) {
         setEditingPaymentId("");
         setForm(initialForm);
       }
 
       setSuccess("Payment deleted successfully.");
+      setPaymentDeleteTarget(null);
       loadPayments();
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
@@ -291,6 +295,16 @@ export default function PaymentsPage() {
   return (
     <div className="grid gap-5 sm:gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.22fr)]">
       <FloatingToastStack error={error} success={success} />
+      <ConfirmDialog
+        isLoading={Boolean(deletingPaymentId)}
+        isOpen={Boolean(paymentDeleteTarget)}
+        title="Delete this payment?"
+        description={`Remove the payment of ${formatCurrency(paymentDeleteTarget?.amount)} for ${paymentDeleteTarget?.student?.name || "this student"}? This will also refresh the linked student payment status.`}
+        confirmLabel="Delete Payment"
+        onClose={() => setPaymentDeleteTarget(null)}
+        onConfirm={handleDeletePayment}
+        tone="danger"
+      />
 
       <section className="grid gap-5 sm:gap-6">
         <article className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 sm:rounded-[1.75rem] sm:p-5">
@@ -494,7 +508,7 @@ export default function PaymentsPage() {
                 <button className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleEditPayment(payment)} type="button">
                   Edit
                 </button>
-                <button className="min-h-11 rounded-full bg-red-50 px-4 py-2 font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => handleDeletePayment(payment)} type="button">
+                <button className="min-h-11 rounded-full bg-red-50 px-4 py-2 font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => openDeletePaymentDialog(payment)} type="button">
                   {deletingPaymentId === payment._id ? "Deleting..." : "Delete"}
                 </button>
               </div>
@@ -535,7 +549,7 @@ export default function PaymentsPage() {
                       <button className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-800 transition hover:-translate-y-0.5 hover:bg-slate-50" onClick={() => handleEditPayment(payment)} type="button">
                         Edit
                       </button>
-                      <button className="rounded-full bg-red-50 px-3 py-2 text-xs font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => handleDeletePayment(payment)} type="button">
+                      <button className="rounded-full bg-red-50 px-3 py-2 text-xs font-extrabold text-red-700 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={deletingPaymentId === payment._id} onClick={() => openDeletePaymentDialog(payment)} type="button">
                         {deletingPaymentId === payment._id ? "Deleting..." : "Delete"}
                       </button>
                     </div>
