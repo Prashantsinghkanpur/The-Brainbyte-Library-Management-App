@@ -238,6 +238,11 @@ export default function SeatsPage() {
     setEditingHallId("");
   };
 
+  const closeHallForm = () => {
+    resetHallForm();
+    setShowHallForm(false);
+  };
+
   const openHallForm = () => {
     resetHallForm();
     setShowHallForm(true);
@@ -264,7 +269,21 @@ export default function SeatsPage() {
     setSuccess("");
 
     try {
-      const payload = { ...hallForm, totalSeats: Number(hallForm.totalSeats) };
+      const trimmedName = hallForm.name.trim();
+      const numericTotalSeats = Number(hallForm.totalSeats);
+
+      if (!trimmedName) {
+        throw new Error("Hall name is required.");
+      }
+
+      if (!Number.isInteger(numericTotalSeats) || numericTotalSeats <= 0) {
+        throw new Error("Total seats must be a positive whole number.");
+      }
+
+      const payload = {
+        name: trimmedName,
+        totalSeats: numericTotalSeats
+      };
 
       if (editingHallId) {
         await apiRequest(`/seats/halls/${editingHallId}`, {
@@ -279,11 +298,10 @@ export default function SeatsPage() {
           token,
           body: payload
         });
-        setSuccess("Seats added successfully.");
+        setSuccess("Hall added successfully.");
       }
 
-      resetHallForm();
-      setShowHallForm(false);
+      closeHallForm();
       loadGrid({ ...filters, hallName: payload.name });
     } catch (submitError) {
       setError(getErrorMessage(submitError));
@@ -314,9 +332,8 @@ export default function SeatsPage() {
     try {
       await apiRequest(`/seats/halls/${hallDeleteTarget._id}`, { method: "DELETE", token });
       setSuccess("Hall deleted successfully.");
-      setShowHallForm(false);
       setHallDeleteTarget(null);
-      resetHallForm();
+      closeHallForm();
       setFilters((current) => ({ ...current, hallName: "" }));
       loadGrid({ ...filters, hallName: "" });
     } catch (deleteError) {
@@ -518,7 +535,7 @@ export default function SeatsPage() {
           <button className="grid min-h-11 place-items-center rounded-2xl bg-white px-4 text-lg font-bold shadow-xl shadow-slate-300/40 sm:h-14 sm:w-14 sm:px-0" onClick={() => { resetHallForm(); setShowHallForm(false); }} type="button" aria-label="Clear hall form">
             X
           </button>
-          <button className="grid min-h-11 place-items-center rounded-2xl bg-teal-700 px-4 text-3xl text-white shadow-xl shadow-teal-700/20 sm:h-14 sm:w-14 sm:px-0" onClick={openHallForm} type="button" aria-label="Add seats">
+          <button className="grid min-h-11 place-items-center rounded-2xl bg-teal-700 px-4 text-3xl text-white shadow-xl shadow-teal-700/20 sm:h-14 sm:w-14 sm:px-0" onClick={openHallForm} type="button" aria-label="Add hall">
             +
           </button>
         </div>
@@ -725,16 +742,13 @@ export default function SeatsPage() {
         eyebrow={editingHallId ? "Hall Settings" : "New Hall"}
         isOpen={showHallForm}
         maxWidthClassName="max-w-[620px]"
-        onClose={() => {
-          resetHallForm();
-          setShowHallForm(false);
-        }}
-        title={editingHallId ? "Edit Seats" : "Add Seats"}
+        onClose={closeHallForm}
+        title={editingHallId ? "Edit Hall" : "Add Hall"}
       >
         <form className="grid gap-4" onSubmit={handleHallSubmit}>
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
-              <label className="font-semibold text-slate-600" htmlFor="hall-name">Section name</label>
+              <label className="font-semibold text-slate-600" htmlFor="hall-name">Hall name</label>
               <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="hall-name" name="name" value={hallForm.name} onChange={handleHallFormChange} required />
             </div>
             <div className="grid gap-2">
@@ -745,7 +759,7 @@ export default function SeatsPage() {
 
           <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
             <button className="min-h-12 rounded-full bg-teal-700 px-5 py-3 font-extrabold text-white shadow-lg shadow-teal-700/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60" disabled={submitting} type="submit">
-              {submitting ? "Saving..." : editingHallId ? "Update Seats" : "Add Seats"}
+              {submitting ? "Saving..." : editingHallId ? "Update Hall" : "Add Hall"}
             </button>
             {editingHallId ? (
               <button

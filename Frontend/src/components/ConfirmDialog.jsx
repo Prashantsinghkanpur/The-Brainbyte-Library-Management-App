@@ -46,7 +46,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] overflow-y-auto p-3 min-[380px]:p-4 sm:p-5"
+      className="fixed inset-0 z-[220] overflow-y-auto p-3 min-[380px]:p-4 sm:p-5"
       onClick={() => {
         if (!isLoading && canCloseFromBackdrop) {
           onClose();
@@ -57,7 +57,7 @@ export default function ConfirmDialog({
       <div className="app-modal-overlay absolute inset-0 bg-slate-950/60" />
       <section
         aria-modal="true"
-        className="app-modal-panel relative left-1/2 top-1/2 z-[80] grid max-h-[calc(100dvh-1.5rem)] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] gap-5 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30 sm:max-h-[calc(100dvh-2.5rem)] sm:p-6"
+        className="app-modal-panel relative left-1/2 top-1/2 z-[230] grid max-h-[calc(100dvh-1.5rem)] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] gap-5 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/30 sm:max-h-[calc(100dvh-2.5rem)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         role="dialog"
