@@ -9,6 +9,7 @@ import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
 import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
+import { getTrialState, hasProAccess } from "../lib/subscription";
 
 const toDateInputDate = (date) => {
   const year = date.getFullYear();
@@ -76,6 +77,21 @@ const createQrImageUrl = (url, size = 420) =>
 
 const DASHBOARD_CACHE_MAX_AGE = 5 * 60 * 1000;
 
+const getCountdownParts = (remainingMs) => {
+  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    days: String(days).padStart(2, "0"),
+    hours: String(hours).padStart(2, "0"),
+    minutes: String(minutes).padStart(2, "0"),
+    seconds: String(seconds).padStart(2, "0")
+  };
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token, user, setSession } = useAuth();
@@ -92,6 +108,7 @@ export default function DashboardPage() {
   const [creatingMember, setCreatingMember] = useState(false);
   const [creatingLibrary, setCreatingLibrary] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [, setTrialTick] = useState(0);
   const dashboardCacheKey = buildCacheKey("dashboard", user?.libraryId || "default");
   const hasDashboardSnapshot =
     analytics !== null ||
@@ -181,6 +198,10 @@ export default function DashboardPage() {
   const libraryAddress = libraryProfile?.address || "Address not added";
   const libraryInitials = libraryName.slice(0, 2).toUpperCase();
   const normalizedPhone = String(libraryProfile?.phone || "").replace(/\D/g, "");
+  const trialSource = user?.trialEndsAt ? user : libraryProfile;
+  const trialState = getTrialState(trialSource);
+  const showTrialTimer = !hasProAccess(user) && trialState.isKnown && trialState.isActive;
+  const countdown = getCountdownParts(trialState.remainingMs);
   const qrPublicUrl =
     typeof window !== "undefined" && user?.libraryId
       ? `${window.location.origin}/public/qr/seats/${user.libraryId}`
@@ -214,6 +235,18 @@ export default function DashboardPage() {
     : newLibrarySeatCount;
   const newLibraryPaymentTotal = Number(libraryForm.subscriptionAmount || 0) * billedSeatCount;
   const showDashboardSkeleton = loadingDashboard && !hasDashboardSnapshot;
+
+  useEffect(() => {
+    if (!showTrialTimer) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setTrialTick((tick) => tick + 1);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [showTrialTimer, trialState.endsAt?.getTime()]);
 
   const setDashboardMode = (mode) => {
     setHomeMode(mode);
@@ -414,6 +447,37 @@ export default function DashboardPage() {
           <p className="m-0 mt-1 break-words text-xs font-bold text-slate-500 min-[380px]:mt-2 min-[380px]:text-sm sm:text-base">{libraryAddress}</p>
         </div>
       </section>
+
+      {showTrialTimer ? (
+        <section className="grid gap-4 rounded-[1.35rem] bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-4 text-white shadow-xl shadow-orange-300/30 min-[380px]:rounded-[1.5rem] min-[380px]:p-5 sm:rounded-[1.75rem] sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="m-0 text-xs font-extrabold uppercase tracking-[0.2em] text-white/80">200 Hour Trial</p>
+              <h2 className="m-0 mt-2 break-words text-2xl font-black leading-tight min-[380px]:text-[2rem] sm:text-[2.4rem]">Full dashboard access is live</h2>
+              <p className="m-0 mt-2 max-w-2xl text-sm font-semibold text-white/90 sm:text-base">
+                After this timer ends, the app will allow only the Settings page until you activate a paid plan.
+              </p>
+            </div>
+            <div className="rounded-full bg-white/15 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-white/90">
+              Ends {formatDate(trialState.endsAt)}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-4">
+            {[
+              ["Days", countdown.days],
+              ["Hours", countdown.hours],
+              ["Minutes", countdown.minutes],
+              ["Seconds", countdown.seconds]
+            ].map(([label, value]) => (
+              <div className="rounded-[1.2rem] border border-white/15 bg-white/10 p-4 text-center backdrop-blur" key={label}>
+                <strong className="block text-3xl font-black leading-none min-[380px]:text-4xl">{value}</strong>
+                <span className="mt-2 block text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/75">{label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="flex w-full rounded-[1.15rem] border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30 min-[380px]:w-fit min-[380px]:rounded-[1.35rem]">
         <button

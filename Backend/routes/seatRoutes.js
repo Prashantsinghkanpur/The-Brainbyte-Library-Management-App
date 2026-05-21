@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
+const requireAppAccess = require("../middleware/requireAppAccess");
 const {
   createHall,
   getHalls,
@@ -8,10 +9,10 @@ const {
   getSeatGrid
 } = require("../controllers/seatController");
 
-router.get("/grid", auth, getSeatGrid);
-router.get("/halls", auth, getHalls);
-router.post("/halls", auth, createHall);
-router.patch("/halls/:id", auth, updateHall);
-router.delete("/halls/:id", auth, deleteHall);
+router.get("/grid", auth, requireAppAccess, getSeatGrid);
+router.get("/halls", auth, requireAppAccess, getHalls);
+router.post("/halls", auth, requireAppAccess, createHall);
+router.patch("/halls/:id", auth, requireAppAccess, updateHall);
+router.delete("/halls/:id", auth, requireAppAccess, deleteHall);
 
 module.exports = router;

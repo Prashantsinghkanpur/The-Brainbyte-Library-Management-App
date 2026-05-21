@@ -6,6 +6,7 @@ import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 import { isProductOwner } from "../lib/productOwner";
+import { getTrialState } from "../lib/subscription";
 
 const SYSTEM_MESSAGE_TEMPLATES = [
   {
@@ -139,9 +140,18 @@ const getThemeLabel = (themeMode) => {
   return "Light";
 };
 
-const getSubscriptionSummary = (subscriptionStatus, subscriptionPlan, renewsInDays) => {
+const getSubscriptionSummary = (subscriptionStatus, subscriptionPlan, renewsInDays, trialState) => {
   if (subscriptionPlan === "PRO" && subscriptionStatus === "ACTIVE") {
     return `Renews in ${renewsInDays ?? 0} days`;
+  }
+
+  if (trialState?.isKnown && trialState.isActive) {
+    const remainingHours = Math.max(0, Math.ceil(trialState.remainingMs / (1000 * 60 * 60)));
+    return `${remainingHours} trial hours left`;
+  }
+
+  if (trialState?.isKnown) {
+    return "Trial ended. Upgrade to restore the dashboard.";
   }
 
   return `${subscriptionStatus} member`;
@@ -493,6 +503,8 @@ export default function SettingsPage() {
   const isProActive = subscriptionPlan === "PRO" && subscriptionStatus === "ACTIVE";
   const showProductOwnerTools = isProductOwner(user);
   const libraryId = user?.libraryId || profile.id;
+  const trialState = getTrialState(subscription?.trialEndsAt ? subscription : user);
+  const accessEndsAt = isProActive ? renewsAt : trialState.endsAt;
   const qrPublicUrl =
     typeof window !== "undefined" && libraryId
       ? `${window.location.origin}/public/qr/seats/${libraryId}`
@@ -1046,7 +1058,8 @@ export default function SettingsPage() {
   const summarySubtitle = getSubscriptionSummary(
     subscriptionStatus,
     subscriptionPlan,
-    subscription?.renewsInDays
+    subscription?.renewsInDays,
+    trialState
   );
 
   return (
@@ -1074,7 +1087,7 @@ export default function SettingsPage() {
           <strong className="block break-words text-[1.15rem] font-black leading-tight text-slate-950 min-[380px]:text-[1.4rem] sm:text-[2rem] sm:leading-none">{profile.name || "Admin"}</strong>
           <p className="m-0 mt-1 break-all text-xs font-semibold text-slate-600 min-[380px]:mt-2 min-[380px]:text-sm sm:text-base">{profile.email || "No email"}</p>
           <span className={isProActive ? "mt-2 inline-flex rounded-full bg-yellow-50 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-yellow-600 min-[380px]:mt-3 min-[380px]:px-3 min-[380px]:py-2 min-[380px]:text-xs min-[380px]:tracking-[0.16em]" : "mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600 min-[380px]:mt-3 min-[380px]:px-3 min-[380px]:py-2 min-[380px]:text-xs min-[380px]:tracking-[0.16em]"}>
-            {isProActive ? "Pro Member" : `${subscriptionStatus} Member`}
+            {isProActive ? "Pro Member" : trialState.isKnown && trialState.isActive ? "Trial Active" : `${subscriptionStatus} Member`}
           </span>
         </div>
         <span className="shrink-0 text-slate-300">
@@ -1479,8 +1492,8 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/35 p-4">
-                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Renewal Date</p>
-                        <strong className="mt-2 block text-lg font-extrabold text-white min-[380px]:text-xl">{renewsAt ? formatDate(renewsAt) : "Starts after payment"}</strong>
+                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{isProActive ? "Renewal Date" : "Trial Ends"}</p>
+                        <strong className="mt-2 block text-lg font-extrabold text-white min-[380px]:text-xl">{accessEndsAt ? formatDate(accessEndsAt) : "Starts after payment"}</strong>
                       </div>
                     </div>
 

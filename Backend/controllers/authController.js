@@ -4,13 +4,14 @@ const Hall = require("../models/Hall");
 const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { buildTrialAccessResponse } = require("../utils/trialAccess");
 
 const normalizeSeatCount = (value) => {
   const seatCount = Number(value);
   return Number.isInteger(seatCount) && seatCount > 0 ? seatCount : null;
 };
 
-const buildAuthResponse = (user) => ({
+const buildAuthResponse = (user, library = null) => ({
   id: user._id,
   name: user.name,
   email: user.email,
@@ -20,7 +21,8 @@ const buildAuthResponse = (user) => ({
   themeMode: user.themeMode,
   subscriptionPlan: user.subscriptionPlan,
   subscriptionStatus: user.subscriptionStatus,
-  subscriptionRenewsAt: user.subscriptionRenewsAt
+  subscriptionRenewsAt: user.subscriptionRenewsAt,
+  ...buildTrialAccessResponse(library?.createdAt)
 });
 
 // REGISTER
@@ -84,7 +86,7 @@ exports.register = async (req, res) => {
 
       res.status(201).json({
         token,
-        user: buildAuthResponse(user)
+        user: buildAuthResponse(user, library)
       });
     } catch (err) {
       await Hall.deleteMany({ libraryId: library._id });
@@ -129,9 +131,11 @@ exports.login = async (req, res) => {
       await user.save();
     }
 
+    const library = await Library.findById(user.libraryId).select("createdAt");
+
     res.json({
       token,
-      user: buildAuthResponse(user)
+      user: buildAuthResponse(user, library)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -277,7 +281,7 @@ exports.createOwnerLibrary = async (req, res) => {
 
     res.status(201).json({
       token,
-      user: buildAuthResponse(user),
+      user: buildAuthResponse(user, library),
       library,
       payment: {
         amountPerSeat: numericAmountPerSeat,
@@ -363,7 +367,7 @@ exports.switchOwnerLibrary = async (req, res) => {
 
     res.json({
       token,
-      user: buildAuthResponse(user),
+      user: buildAuthResponse(user, library),
       library
     });
   } catch (err) {

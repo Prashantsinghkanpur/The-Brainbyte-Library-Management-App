@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../lib/api";
 import { getErrorMessage } from "../lib/format";
 import { isProductOwner } from "../lib/productOwner";
-import { hasProAccess, shouldShowLocalProBypass } from "../lib/subscription";
+import { getTrialState, hasAppAccess, shouldShowLocalProBypass } from "../lib/subscription";
 import { LogoButton, LogoPopup } from "./LogoPreview";
 
 function NavIcon({ name, className = "h-4 w-4" }) {
@@ -94,9 +94,10 @@ export default function AppShell() {
   const [libraryError, setLibraryError] = useState("");
   const [showLogoPopup, setShowLogoPopup] = useState(false);
   const [isRouteTransitioning, setIsRouteTransitioning] = useState(false);
-  const proAccessEnabled = hasProAccess(user);
+  const appAccessEnabled = hasAppAccess(user);
   const localProBypass = shouldShowLocalProBypass();
   const showProductOwnerNav = isProductOwner(user);
+  const trialState = getTrialState(user);
   const navItems = showProductOwnerNav
     ? [...baseNavItems, { path: "/admin", label: "Owner Admin", short: "Admin", icon: "shield" }]
     : baseNavItems;
@@ -183,7 +184,7 @@ export default function AppShell() {
               to={item.path}
               className={({ isActive }) => {
                 const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
-                const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
+                const isRenewOnly = !appAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
 
                 if (isRenewOnly) {
                   return "flex items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition opacity-40 text-slate-400 cursor-not-allowed";
@@ -195,7 +196,7 @@ export default function AppShell() {
               }}
               onClick={(e) => {
                 const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
-                const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
+                const isRenewOnly = !appAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
                 if (isRenewOnly) {
                   e.preventDefault();
                   return;
@@ -251,7 +252,13 @@ export default function AppShell() {
             <h2 className="m-0 break-words text-2xl font-extrabold">{user?.name || "Library Owner"}</h2>
           </div>
           <div className="shrink-0 rounded-full bg-emerald-50 px-4 py-2 text-xs font-extrabold text-emerald-700">
-            {localProBypass ? "LOCAL PRO ACCESS" : user?.subscriptionStatus || "ACTIVE"}
+            {localProBypass
+              ? "LOCAL PRO ACCESS"
+              : user?.subscriptionPlan === "PRO" && user?.subscriptionStatus === "ACTIVE"
+                ? "PRO ACTIVE"
+                : trialState.isKnown && trialState.isActive
+                  ? "TRIAL ACTIVE"
+                  : "TRIAL EXPIRED"}
           </div>
         </header>
         <div className="mb-4 grid gap-2 lg:hidden">
@@ -285,7 +292,7 @@ export default function AppShell() {
             to={item.path}
             className={({ isActive }) => {
               const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
-              const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
+              const isRenewOnly = !appAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
 
               if (isRenewOnly) {
                 return "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1 text-[9px] font-bold transition min-[380px]:text-[10px] opacity-40 text-slate-400 cursor-not-allowed";
@@ -297,7 +304,7 @@ export default function AppShell() {
             }}
             onClick={(e) => {
               const isOwnerAdminItem = showProductOwnerNav && item.path === "/admin";
-              const isRenewOnly = !proAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
+              const isRenewOnly = !appAccessEnabled && item.path !== "/settings" && !isOwnerAdminItem;
               if (isRenewOnly) {
                 e.preventDefault();
                 return;

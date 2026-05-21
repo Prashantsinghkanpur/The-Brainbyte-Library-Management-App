@@ -21,6 +21,41 @@ export function AuthProvider({ children }) {
   }, [authState]);
 
   useEffect(() => {
+    if (!authState.token || !authState.user || authState.user.trialEndsAt !== undefined) {
+      setIsBootstrapping(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setIsBootstrapping(true);
+
+    apiRequest("/settings/profile", { token: authState.token })
+      .then((data) => {
+        if (cancelled) return;
+
+        setAuthState((current) => ({
+          ...current,
+          user: {
+            ...current.user,
+            ...data.user
+          }
+        }));
+      })
+      .catch(() => {
+        // Keep the existing session if the refresh fails; routing can continue with stored auth.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsBootstrapping(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState.token, authState.user]);
+
+  useEffect(() => {
     const root = document.documentElement;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 

@@ -5,6 +5,7 @@ const AppSubscriptionPayment = require("../models/AppSubscriptionPayment");
 const ProductOwnerActionLog = require("../models/ProductOwnerActionLog");
 const crypto = require("crypto");
 const https = require("https");
+const { buildTrialAccessResponse } = require("../utils/trialAccess");
 
 const MAX_LOGO_DATA_URL_LENGTH = 350000;
 
@@ -428,7 +429,8 @@ const buildSettingsResponse = (user, library) => ({
     themeMode: user.themeMode,
     subscriptionPlan: user.subscriptionPlan,
     subscriptionStatus: user.subscriptionStatus,
-    subscriptionRenewsAt: user.subscriptionRenewsAt
+    subscriptionRenewsAt: user.subscriptionRenewsAt,
+    ...buildTrialAccessResponse(library?.createdAt)
   },
   library: {
     id: library._id,
@@ -502,6 +504,7 @@ const buildSubscriptionResponse = (user, libraryOrPayment = null) => {
     status: user.subscriptionStatus,
     renewsAt: user.subscriptionRenewsAt,
     renewsInDays,
+    ...buildTrialAccessResponse(libraryOrPayment?.createdAt),
     ...pricing
   };
 };

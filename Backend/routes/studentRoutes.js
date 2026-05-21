@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
+const requireAppAccess = require("../middleware/requireAppAccess");
 const {
   addStudent,
   getStudents,
@@ -10,12 +11,12 @@ const {
   deleteFormerMember
 } = require("../controllers/studentController");
 
-router.post("/", auth, addStudent);
-router.get("/", auth, getStudents);
-router.get("/former-members", auth, getFormerMembers);
-router.delete("/former-members/:id", auth, deleteFormerMember);
-router.get("/:id", auth, getStudentById);
-router.patch("/:id", auth, updateStudent);
-router.delete("/:id", auth, archiveStudent);
+router.post("/", auth, requireAppAccess, addStudent);
+router.get("/", auth, requireAppAccess, getStudents);
+router.get("/former-members", auth, requireAppAccess, getFormerMembers);
+router.delete("/former-members/:id", auth, requireAppAccess, deleteFormerMember);
+router.get("/:id", auth, requireAppAccess, getStudentById);
+router.patch("/:id", auth, requireAppAccess, updateStudent);
+router.delete("/:id", auth, requireAppAccess, archiveStudent);
 
 module.exports = router;
