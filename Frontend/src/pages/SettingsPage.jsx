@@ -453,7 +453,7 @@ function ModalFrame({ title, subtitle, onClose, children, panelClassName = "", o
   return (
     <div className="fixed inset-0 z-[60]">
       <button className={`app-modal-overlay absolute inset-0 bg-slate-950/50 ${overlayClassName}`.trim()} onClick={onClose} type="button" aria-label="Close settings popup" />
-      <div className="relative z-10 flex min-h-full items-start justify-center overflow-y-auto p-3 min-[380px]:p-4 sm:p-5">
+    <div className="relative z-10 flex min-h-full items-start justify-center p-3 min-[380px]:p-4 sm:p-5">
         <section className={`app-modal-panel relative grid max-h-[calc(100vh-1.5rem)] w-full max-w-[760px] gap-3 overflow-auto rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-2xl shadow-slate-950/30 min-[380px]:max-h-[calc(100vh-2rem)] min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:p-4 sm:max-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:p-5 ${panelClassName}`.trim()}>
           {hideHeader ? null : (
             <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-4">
@@ -1448,7 +1448,7 @@ export default function SettingsPage() {
           subtitle="View plan, renew dates, and subscription controls."
           onClose={() => setActiveModal("")}
           hideHeader
-          panelClassName="overflow-x-hidden border-slate-800 bg-slate-950 p-0 text-white shadow-[0_35px_120px_rgba(2,6,23,0.72)]"
+          panelClassName="w-screen max-w-[100vw] h-[100dvh] overflow-hidden border-slate-800 bg-slate-950 p-0 text-white shadow-[0_35px_120px_rgba(2,6,23,0.72)] rounded-none flex flex-col"
           overlayClassName="bg-slate-950/75 backdrop-blur-sm"
         >
           <div className="relative overflow-hidden">
@@ -1457,7 +1457,7 @@ export default function SettingsPage() {
             <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-fuchsia-500/10 blur-3xl" />
             <div className="absolute bottom-0 left-1/3 h-28 w-28 rounded-full bg-yellow-300/10 blur-3xl" />
 
-            <div className="relative grid gap-5 px-4 pb-5 pt-4 min-[380px]:px-5 min-[380px]:pb-6 min-[380px]:pt-5 sm:px-8 sm:pb-8 sm:pt-7">
+            <div className="relative grid gap-5 px-4 pb-5 pt-4 min-[380px]:px-5 min-[380px]:pb-6 min-[380px]:pt-5 sm:px-8 sm:pb-8 sm:pt-7 flex-1 overflow-y-auto">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/20 bg-yellow-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-yellow-300 min-[380px]:text-[11px]">
