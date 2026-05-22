@@ -42,7 +42,6 @@ const studentSchema = new mongoose.Schema({
   },
   hallName: {
     type: String,
-    default: "Main Hall",
     trim: true
   },
   seatNumber: {

@@ -81,3 +81,33 @@ export function writeCachedValue(cacheKey, data) {
     storage.removeItem(cacheKey);
   }
 }
+
+export function removeCachedValue(cacheKey) {
+  const storage = getStorage();
+
+  if (!storage || !cacheKey) {
+    return;
+  }
+
+  storage.removeItem(cacheKey);
+}
+
+export function removeCachedValuesByPrefix(prefix) {
+  const storage = getStorage();
+
+  if (!storage || !prefix) {
+    return;
+  }
+
+  const keysToRemove = [];
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+
+    if (key && key.startsWith(prefix)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => storage.removeItem(key));
+}

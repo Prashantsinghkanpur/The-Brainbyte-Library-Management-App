@@ -7,7 +7,12 @@ import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
-import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
+import {
+  buildCacheKey,
+  readCachedValue,
+  removeCachedValuesByPrefix,
+  writeCachedValue
+} from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage } from "../lib/format";
 
 const initialHallForm = {
@@ -172,15 +177,18 @@ export default function SeatsPage() {
   const editingHall = gridData.halls.find((hall) => hall._id === editingHallId) || gridData.selectedHall;
   const showStudentDetailModal = Boolean(viewingStudent) || loadingStudentDetail;
   const activeHallFilter = filters.hallName || gridData.selectedHall?.name || "";
+  const seatGridCachePrefix = buildCacheKey("seat-grid", user?.libraryId || "default");
 
-  const loadGrid = async (nextFilters = filters) => {
+  const loadGrid = async (nextFilters = filters, { skipCache = false } = {}) => {
     setError("");
     const searchQuery = buildSeatFilterQuery(nextFilters);
     const cacheKey = buildCacheKey("seat-grid", user?.libraryId || "default", searchQuery || "all");
-    const cachedGrid = readCachedValue(cacheKey, {
-      maxAgeMs: SEAT_GRID_CACHE_MAX_AGE,
-      allowExpired: true
-    });
+    const cachedGrid = skipCache
+      ? null
+      : readCachedValue(cacheKey, {
+          maxAgeMs: SEAT_GRID_CACHE_MAX_AGE,
+          allowExpired: true
+        });
 
     if (cachedGrid) {
       setGridData(cachedGrid);
@@ -302,8 +310,9 @@ export default function SeatsPage() {
         setSuccess("Hall added successfully.");
       }
 
+      removeCachedValuesByPrefix(seatGridCachePrefix);
       closeHallForm();
-      loadGrid({ ...filters, hallName: payload.name });
+      loadGrid({ ...filters, hallName: payload.name }, { skipCache: true });
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -333,10 +342,11 @@ export default function SeatsPage() {
     try {
       await apiRequest(`/seats/halls/${hallDeleteTarget._id}`, { method: "DELETE", token });
       setSuccess("Hall deleted successfully.");
+      removeCachedValuesByPrefix(seatGridCachePrefix);
       setHallDeleteTarget(null);
       closeHallForm();
       setFilters((current) => ({ ...current, hallName: "" }));
-      loadGrid({ ...filters, hallName: "" });
+      loadGrid({ ...filters, hallName: "" }, { skipCache: true });
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
     } finally {

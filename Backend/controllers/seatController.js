@@ -1,6 +1,5 @@
 const Hall = require("../models/Hall");
 const Student = require("../models/student");
-const Library = require("../models/Library");
 
 const normalizeName = (value) => value.trim();
 
@@ -45,29 +44,6 @@ const ensureHallCanHoldSeat = async (libraryId, hallName, seatNumber) => {
 };
 
 exports.ensureHallCapacity = ensureHallCanHoldSeat;
-
-const ensureLibrarySeatsVisible = async (libraryId, halls) => {
-  const library = await Library.findById(libraryId);
-  const librarySeatCount = Number(library?.seatCount || 0);
-
-  if (librarySeatCount <= 0 || halls.length === 0) {
-    return halls;
-  }
-
-  const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
-
-  if (totalHallSeats >= librarySeatCount) {
-    return halls;
-  }
-
-  const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
-  mainHall.totalSeats += librarySeatCount - totalHallSeats;
-  await mainHall.save();
-
-  return halls.map((hall) => (
-    hall._id.toString() === mainHall._id.toString() ? mainHall : hall
-  ));
-};
 
 exports.createHall = async (req, res) => {
   try {
@@ -228,8 +204,6 @@ exports.getSeatGrid = async (req, res) => {
       libraryId: req.user.libraryId,
       isActive: true
     }).sort({ createdAt: 1 });
-
-    halls = await ensureLibrarySeatsVisible(req.user.libraryId, halls);
 
     const selectedHall =
       halls.find((hall) => hall.name === hallName) ||

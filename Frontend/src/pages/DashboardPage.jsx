@@ -382,6 +382,12 @@ export default function DashboardPage() {
       return;
     }
 
+    if (!memberForm.hallName.trim()) {
+      setError("Hall name is required.");
+      setCreatingMember(false);
+      return;
+    }
+
     const payload = {
       ...memberForm,
       membershipStartDate: memberForm.joinedDate,
@@ -786,7 +792,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-hall">Hall Name</label>
-                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-hall" name="hallName" placeholder="Main Hall" value={memberForm.hallName} onChange={handleMemberFormChange} />
+                  <input className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100" id="new-member-hall" name="hallName" placeholder="Enter hall name" value={memberForm.hallName} onChange={handleMemberFormChange} required />
                 </div>
                 <div className="grid gap-2">
                   <label className="font-semibold text-slate-600" htmlFor="new-member-joinedDate">Joining Date</label>

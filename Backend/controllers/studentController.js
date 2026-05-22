@@ -113,9 +113,9 @@ exports.addStudent = async (req, res) => {
       notes
     } = req.body;
 
-    if (!name || !phone || seatNumber === undefined || !plan || !joinedDate) {
+    if (!name || !phone || seatNumber === undefined || !plan || !joinedDate || !hallName?.trim()) {
       return res.status(400).json({
-        msg: "name, phone, seatNumber, plan and joinedDate are required"
+        msg: "name, phone, hallName, seatNumber, plan and joinedDate are required"
       });
     }
 
@@ -160,7 +160,7 @@ exports.addStudent = async (req, res) => {
     if (paidTill && !normalizeDate(paidTill)) {
       return res.status(400).json({ msg: "paidTill is not a valid date" });
     }
-    const normalizedHallName = hallName ? hallName.trim() : "Main Hall";
+    const normalizedHallName = hallName.trim();
     const normalizedShift = shift ? shift.toUpperCase() : "FULL_DAY";
 
     const existingSeat = await Student.findOne({
@@ -455,6 +455,10 @@ exports.updateStudent = async (req, res) => {
       notes
     } = req.body;
     const nextHallName = hallName !== undefined ? hallName.trim() : student.hallName;
+
+    if (hallName !== undefined && !nextHallName) {
+      return res.status(400).json({ msg: "hallName cannot be empty" });
+    }
 
     if (name !== undefined) student.name = name.trim();
     if (phone !== undefined) {

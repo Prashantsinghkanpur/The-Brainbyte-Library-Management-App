@@ -59,12 +59,6 @@ exports.register = async (req, res) => {
       address: address?.trim() || "",
       seatCount: normalizedSeatCount
     });
-    await Hall.create({
-      libraryId: library._id,
-      name: "Main Hall",
-      totalSeats: normalizedSeatCount
-    });
-
     // hash password
     const hashed = await bcrypt.hash(password, 10);
 
@@ -194,12 +188,6 @@ exports.createOwnerLibrary = async (req, res) => {
         address: address?.trim() || "",
         seatCount: normalizedSeatCount
       });
-      await Hall.create({
-        libraryId: library._id,
-        name: "Main Hall",
-        totalSeats: normalizedSeatCount
-      });
-
       const renewsAt = new Date();
       renewsAt.setDate(renewsAt.getDate() + 30);
 

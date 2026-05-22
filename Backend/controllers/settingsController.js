@@ -568,18 +568,6 @@ exports.updateSettingsProfile = async (req, res) => {
       }
 
       library.seatCount = normalizedSeatCount;
-
-      const halls = await Hall.find({
-        libraryId: library._id,
-        isActive: true
-      }).sort({ createdAt: 1 });
-      const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
-
-      if (halls.length > 0 && totalHallSeats < normalizedSeatCount) {
-        const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
-        mainHall.totalSeats += normalizedSeatCount - totalHallSeats;
-        await mainHall.save();
-      }
     }
 
     if (logoDataUrl !== undefined) {
@@ -1323,20 +1311,7 @@ exports.getPublicSeatSnapshot = async (req, res) => {
       isActive: true
     }).sort({ createdAt: 1 });
 
-    // Ensure library seats visibility like seatController does
-    const librarySeatCount = Number(library?.seatCount || 0);
-    if (librarySeatCount > 0) {
-      if (halls.length > 0) {
-        const totalHallSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
-        if (totalHallSeats < librarySeatCount) {
-          const mainHall = halls.find((hall) => hall.name === "Main Hall") || halls[0];
-          mainHall.totalSeats += librarySeatCount - totalHallSeats;
-          await mainHall.save();
-        }
-      }
-    }
-
-    const selectedHall = halls.find((hall) => hall.name === "Main Hall") || halls[0] || null;
+    const selectedHall = halls[0] || null;
 
     const allStudents = await Student.find({
       libraryId

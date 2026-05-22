@@ -113,7 +113,7 @@ export default function SeatQRPublicPage() {
                             Available
                           </strong>
                           <p className="m-0 mt-1 text-xs font-bold text-slate-400 min-[380px]:text-sm">
-                            {seat.hallName || "Main Hall"}
+                            {seat.hallName || "Hall"}
                           </p>
                         </div>
                       </div>
