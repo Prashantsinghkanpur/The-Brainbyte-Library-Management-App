@@ -89,6 +89,37 @@ const PRO_SUBSCRIPTION_FEATURES = [
   }
 ];
 
+const SUBSCRIPTION_PLAN_THEMES = {
+  "12_MONTHS": {
+    activeCard: "border-yellow-300 bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.2),_rgba(255,255,255,0.06)_36%,_rgba(15,23,42,0.92)_100%)] shadow-[0_24px_55px_rgba(250,204,21,0.16)]",
+    inactiveCard: "border-yellow-200/15 bg-[linear-gradient(135deg,rgba(30,41,59,0.94),rgba(49,46,129,0.8))] shadow-[0_18px_45px_rgba(15,23,42,0.22)]",
+    accentText: "text-yellow-200",
+    noteText: "text-emerald-300",
+    dot: "border-yellow-200/30 bg-yellow-300/14 text-yellow-100"
+  },
+  "6_MONTHS": {
+    activeCard: "border-cyan-300 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_rgba(255,255,255,0.06)_34%,_rgba(17,24,39,0.92)_100%)] shadow-[0_24px_55px_rgba(34,211,238,0.16)]",
+    inactiveCard: "border-cyan-200/15 bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(30,41,59,0.82)_45%,rgba(14,116,144,0.48))] shadow-[0_18px_45px_rgba(8,47,73,0.28)]",
+    accentText: "text-cyan-100",
+    noteText: "text-cyan-200",
+    dot: "border-cyan-200/30 bg-cyan-300/12 text-cyan-100"
+  },
+  "1_MONTH": {
+    activeCard: "border-fuchsia-300 bg-[radial-gradient(circle_at_top_left,_rgba(232,121,249,0.2),_rgba(255,255,255,0.06)_34%,_rgba(17,24,39,0.92)_100%)] shadow-[0_24px_55px_rgba(232,121,249,0.16)]",
+    inactiveCard: "border-fuchsia-200/15 bg-[linear-gradient(135deg,rgba(15,23,42,0.95),rgba(51,65,85,0.82)_40%,rgba(91,33,182,0.42))] shadow-[0_18px_45px_rgba(49,46,129,0.28)]",
+    accentText: "text-fuchsia-100",
+    noteText: "text-fuchsia-100/90",
+    dot: "border-fuchsia-200/30 bg-fuchsia-300/12 text-fuchsia-100"
+  }
+};
+
+const PRO_FEATURE_THEMES = [
+  "border-cyan-300/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(15,23,42,0.72))] text-cyan-100",
+  "border-emerald-300/20 bg-[linear-gradient(135deg,rgba(52,211,153,0.18),rgba(15,23,42,0.72))] text-emerald-100",
+  "border-amber-300/20 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(15,23,42,0.72))] text-amber-100",
+  "border-fuchsia-300/20 bg-[linear-gradient(135deg,rgba(232,121,249,0.18),rgba(15,23,42,0.72))] text-fuchsia-100"
+];
+
 const DEFAULT_SHIFT_SETTINGS = [
   { id: "full_day", name: "Full Day", startTime: "08:00", endTime: "20:00", feeAmount: "" },
   { id: "morning", name: "Morning", startTime: "06:00", endTime: "12:00", feeAmount: "" },
@@ -1110,20 +1141,29 @@ export default function SettingsPage() {
         <SectionLabel>Subscription</SectionLabel>
 
         <button
-          className="flex items-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-teal-700 to-sky-600 px-3.5 py-4 text-left text-white shadow-xl shadow-teal-700/20 transition hover:-translate-y-0.5 min-[380px]:gap-4 min-[380px]:rounded-[1.6rem] min-[380px]:px-4 min-[380px]:py-5 sm:rounded-[2rem] sm:px-5 sm:py-6"
+          className="relative overflow-hidden rounded-[1.35rem] bg-[linear-gradient(135deg,#0f172a_0%,#172554_42%,#0f766e_100%)] px-3.5 py-4 text-left text-white shadow-[0_24px_55px_rgba(8,47,73,0.28)] transition hover:-translate-y-0.5 min-[380px]:rounded-[1.6rem] min-[380px]:px-4 min-[380px]:py-5 sm:rounded-[2rem] sm:px-5 sm:py-6"
           onClick={() => setActiveModal("subscription")}
           type="button"
         >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1rem] bg-white/16 min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-[1.15rem] sm:h-16 sm:w-16 sm:rounded-[1.35rem]">
-            <SettingsIcon name="sparkle" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <strong className="block break-words text-[1.2rem] font-black leading-tight min-[380px]:text-[1.45rem] sm:text-[1.95rem] sm:leading-none">You are {subscriptionPlan}</strong>
-            <p className="m-0 mt-1 break-words text-sm font-semibold text-white/90 min-[380px]:mt-2 min-[380px]:text-base sm:text-lg">{summarySubtitle}</p>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.22),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.26),transparent_38%)]" />
+          <div className="absolute -right-10 top-0 h-24 w-24 rounded-full bg-yellow-300/20 blur-3xl" />
+          <div className="absolute -left-6 bottom-0 h-20 w-20 rounded-full bg-cyan-300/20 blur-3xl" />
+
+          <div className="relative flex items-center gap-3 min-[380px]:gap-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1rem] border border-white/15 bg-white/12 backdrop-blur min-[380px]:h-14 min-[380px]:w-14 min-[380px]:rounded-[1.15rem] sm:h-16 sm:w-16 sm:rounded-[1.35rem]">
+              <SettingsIcon name="sparkle" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <span className="inline-flex rounded-full border border-yellow-300/25 bg-yellow-300/14 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-yellow-200 min-[380px]:text-[11px]">
+                Premium Access
+              </span>
+              <strong className="mt-2 block break-words text-[1.2rem] font-black leading-tight min-[380px]:text-[1.45rem] sm:text-[1.95rem] sm:leading-none">You are {subscriptionPlan}</strong>
+              <p className="m-0 mt-1 break-words text-sm font-semibold text-white/90 min-[380px]:mt-2 min-[380px]:text-base sm:text-lg">{summarySubtitle}</p>
+            </div>
+            <span className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/15 bg-white/15 px-3 text-[10px] font-extrabold uppercase tracking-[0.14em] backdrop-blur min-[380px]:min-h-12 min-[380px]:px-4 min-[380px]:text-xs sm:px-5 sm:text-sm">
+              View Pro
+            </span>
           </div>
-          <span className="inline-flex min-h-10 items-center justify-center rounded-full bg-white/18 px-3 text-[10px] font-extrabold uppercase tracking-[0.1em] min-[380px]:min-h-12 min-[380px]:px-4 min-[380px]:text-xs min-[380px]:tracking-[0.14em] sm:px-5 sm:text-sm">
-            View
-          </span>
         </button>
 
         <SettingsGroup>
@@ -1491,66 +1531,70 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                <div className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-slate-950/40 backdrop-blur min-[380px]:p-5 sm:rounded-[2rem] sm:p-6">
-                  <div className="absolute inset-x-5 top-5 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
-                  <div className="grid gap-4 pt-4 sm:grid-cols-[1.05fr_0.95fr] sm:pt-5">
-                    <div className="grid gap-3">
-                      <div>
-                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200/80 min-[380px]:text-[11px]">Current Status</p>
-                        <strong className="mt-2 block break-words text-2xl font-black text-white min-[380px]:text-[2rem]">You are {subscriptionPlan}</strong>
-                        <p className="m-0 mt-2 break-words text-sm font-medium text-slate-300 min-[380px]:text-base">{summarySubtitle}</p>
-                      </div>
-
-                      <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/35 p-4">
-                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{isProActive ? "Renewal Date" : "Trial Ends"}</p>
-                        <strong className="mt-2 block text-lg font-extrabold text-white min-[380px]:text-xl">{accessEndsAt ? formatDate(accessEndsAt) : "Starts after payment"}</strong>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <div className="rounded-[1.4rem] border border-cyan-300/20 bg-cyan-300/10 p-4">
-                        <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200/80">Built For</p>
-                        <strong className="mt-2 block text-lg font-extrabold text-white">Serious Library Owners</strong>
-                        <p className="m-0 mt-2 text-sm text-slate-300">One place to manage memberships, reminders, receipts, and growth.</p>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
-                          <strong className="block text-lg font-black text-white">24x7</strong>
-                          <span className="text-[11px] font-semibold text-slate-400">Access</span>
+              <div className="relative overflow-hidden rounded-[2rem] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(30,41,59,0.82)_36%,rgba(8,145,178,0.18)_100%)] p-4 shadow-[0_24px_65px_rgba(8,47,73,0.32)] backdrop-blur min-[380px]:p-5 sm:rounded-[2.2rem] sm:p-6">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(250,204,21,0.14),transparent_32%)]" />
+                <div className="relative grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.09),rgba(30,41,59,0.68))] p-4 shadow-2xl shadow-slate-950/40 backdrop-blur min-[380px]:p-5 sm:rounded-[2rem] sm:p-6">
+                    <div className="absolute inset-x-5 top-5 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
+                    <div className="grid gap-4 pt-4 sm:grid-cols-[1.05fr_0.95fr] sm:pt-5">
+                      <div className="grid gap-3">
+                        <div>
+                          <p className="m-0 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200/80 min-[380px]:text-[11px]">Current Status</p>
+                          <strong className="mt-2 block break-words text-2xl font-black text-white min-[380px]:text-[2rem]">You are {subscriptionPlan}</strong>
+                          <p className="m-0 mt-2 break-words text-sm font-medium text-slate-300 min-[380px]:text-base">{summarySubtitle}</p>
                         </div>
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
-                          <strong className="block text-lg font-black text-white">3</strong>
-                          <span className="text-[11px] font-semibold text-slate-400">Plans</span>
+
+                        <div className="rounded-[1.4rem] border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.82),rgba(30,41,59,0.9))] p-4">
+                          <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{isProActive ? "Renewal Date" : "Trial Ends"}</p>
+                          <strong className="mt-2 block text-lg font-extrabold text-white min-[380px]:text-xl">{accessEndsAt ? formatDate(accessEndsAt) : "Starts after payment"}</strong>
                         </div>
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 p-3 text-center">
-                          <strong className="block text-lg font-black text-white">Pro</strong>
-                          <span className="text-[11px] font-semibold text-slate-400">Tools</span>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div className="rounded-[1.4rem] border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.2),rgba(59,130,246,0.16))] p-4">
+                          <p className="m-0 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200/80">Built For</p>
+                          <strong className="mt-2 block text-lg font-extrabold text-white">Serious Library Owners</strong>
+                          <p className="m-0 mt-2 text-sm text-slate-300">One place to manage memberships, reminders, receipts, and growth.</p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="rounded-[1.2rem] border border-emerald-300/15 bg-[linear-gradient(180deg,rgba(52,211,153,0.18),rgba(30,41,59,0.55))] p-3 text-center">
+                            <strong className="block text-lg font-black text-white">24x7</strong>
+                            <span className="text-[11px] font-semibold text-slate-300">Access</span>
+                          </div>
+                          <div className="rounded-[1.2rem] border border-yellow-300/15 bg-[linear-gradient(180deg,rgba(250,204,21,0.18),rgba(30,41,59,0.55))] p-3 text-center">
+                            <strong className="block text-lg font-black text-white">3</strong>
+                            <span className="text-[11px] font-semibold text-slate-300">Plans</span>
+                          </div>
+                          <div className="rounded-[1.2rem] border border-fuchsia-300/15 bg-[linear-gradient(180deg,rgba(232,121,249,0.16),rgba(30,41,59,0.55))] p-3 text-center">
+                            <strong className="block text-lg font-black text-white">Pro</strong>
+                            <span className="text-[11px] font-semibold text-slate-300">Tools</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid gap-3">
-                  {PRO_SUBSCRIPTION_FEATURES.map((feature) => (
-                    <div className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur" key={feature.title}>
-                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1.1rem] bg-white/10 text-cyan-200">
-                        <SettingsIcon name={feature.icon} />
-                      </span>
-                      <div className="min-w-0">
-                        <strong className="block break-words text-base font-extrabold text-white">{feature.title}</strong>
-                        <p className="m-0 mt-1 break-words text-sm text-slate-300">{feature.description}</p>
+                  <div className="grid gap-3">
+                    {PRO_SUBSCRIPTION_FEATURES.map((feature, index) => (
+                      <div className={`flex items-start gap-3 rounded-[1.5rem] border p-4 shadow-[0_18px_45px_rgba(15,23,42,0.22)] backdrop-blur ${PRO_FEATURE_THEMES[index % PRO_FEATURE_THEMES.length]}`} key={feature.title}>
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1.1rem] border border-white/10 bg-white/10">
+                          <SettingsIcon name={feature.icon} />
+                        </span>
+                        <div className="min-w-0">
+                          <strong className="block break-words text-base font-extrabold text-white">{feature.title}</strong>
+                          <p className="m-0 mt-1 break-words text-sm text-white/75">{feature.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div className="grid gap-3">
                 {APP_SUBSCRIPTION_PLANS.map((plan) => {
                   const active = plan.key === selectedPlanKey;
+                  const theme = SUBSCRIPTION_PLAN_THEMES[plan.key] || SUBSCRIPTION_PLAN_THEMES["1_MONTH"];
 
                   return (
                     <button
@@ -1558,22 +1602,22 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => setSelectedPlanKey(plan.key)}
                       disabled={Boolean(subscriptionAction)}
-                      className={active ? "rounded-[1.8rem] border-2 border-yellow-300 bg-yellow-300/10 p-4 text-left shadow-[0_18px_40px_rgba(250,204,21,0.12)] transition hover:-translate-y-0.5 min-[380px]:p-5" : "rounded-[1.8rem] border border-white/10 bg-white/5 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/10 min-[380px]:p-5"}
+                      className={`rounded-[1.8rem] p-4 text-left transition hover:-translate-y-0.5 min-[380px]:p-5 ${active ? `border-2 ${theme.activeCard}` : `border ${theme.inactiveCard} hover:bg-white/10`}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <strong className={`break-words text-xl font-black min-[380px]:text-[1.7rem] ${active ? "text-yellow-200" : "text-white"}`}>{plan.label}</strong>
+                            <strong className={`break-words text-xl font-black min-[380px]:text-[1.7rem] ${active ? theme.accentText : "text-white"}`}>{plan.label}</strong>
                             {plan.badge ? <span className="rounded-full bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-950">{plan.badge}</span> : null}
                           </div>
                           <div className="mt-3 flex flex-wrap items-end gap-2">
                             <span className="text-4xl font-black leading-none text-white min-[380px]:text-[3.2rem]">{formatCurrency(plan.price)}</span>
-                            <span className="pb-1 text-sm font-bold text-slate-400 min-[380px]:text-base">{plan.periodLabel}</span>
+                            <span className="pb-1 text-sm font-bold text-slate-300/85 min-[380px]:text-base">{plan.periodLabel}</span>
                           </div>
-                          <p className={`m-0 mt-3 break-words text-sm font-semibold min-[380px]:text-base ${active ? "text-emerald-300" : "text-slate-300"}`}>{plan.note}</p>
+                          <p className={`m-0 mt-3 break-words text-sm font-semibold min-[380px]:text-base ${active ? theme.noteText : "text-slate-200/88"}`}>{plan.note}</p>
                         </div>
 
-                        <span className={active ? "mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-300 text-[11px] font-black uppercase tracking-[0.16em] text-slate-950" : "mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-sm font-black text-slate-400"}>
+                        <span className={`mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[11px] font-black uppercase tracking-[0.16em] ${active ? "bg-yellow-300 text-slate-950" : theme.dot}`}>
                           {active ? "ON" : ""}
                         </span>
                       </div>
@@ -1582,7 +1626,7 @@ export default function SettingsPage() {
                 })}
               </div>
 
-              <div className="rounded-[1.8rem] border border-white/10 bg-white/5 p-4 backdrop-blur min-[380px]:p-5">
+              <div className="rounded-[1.8rem] border border-fuchsia-300/14 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(76,29,149,0.28),rgba(15,23,42,0.72))] p-4 shadow-[0_18px_45px_rgba(49,46,129,0.28)] backdrop-blur min-[380px]:p-5">
                 <strong className="block text-center text-2xl font-black text-white">Need Help?</strong>
                 <p className="m-0 mt-2 text-center text-sm text-slate-300 min-[380px]:text-base">Questions about Pro plans? Chat with us directly.</p>
 
