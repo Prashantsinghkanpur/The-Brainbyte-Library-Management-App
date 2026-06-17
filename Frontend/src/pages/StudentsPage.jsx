@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTimedAlerts } from "../hooks/useTimedAlerts";
 import { apiRequest } from "../lib/api";
 import { withMinimumDelay } from "../lib/async";
-import { buildCacheKey, readCachedValue, writeCachedValue } from "../lib/cache";
+import { buildCacheKey, readCachedValue, removeCachedValuesByPrefix, writeCachedValue } from "../lib/cache";
 import { formatCurrency, formatDate, getErrorMessage, toDateInputValue } from "../lib/format";
 import { getPaymentMessageActions, getStudentMessageActions } from "../lib/messages";
 
@@ -361,12 +361,15 @@ export default function StudentsPage() {
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false);
   const [copiedId, setCopiedId] = useState("");
   const [showStudentForm, setShowStudentForm] = useState(false);
+  const [studentFormError, setStudentFormError] = useState("");
   const routeSearchParams = new URLSearchParams(location.search);
   const requestedStudentId = location.state?.studentId || routeSearchParams.get("studentId") || "";
   const shouldOpenNewStudentForm = routeSearchParams.get("new") === "1";
   const hasDirectorySnapshot = students.length > 0 || halls.length > 0;
   const hasFormerMemberSnapshot = formerMembers.length > 0;
   const showStudentDetailModal = Boolean(viewingStudent) || (Boolean(requestedStudentId) && loadingStudentDetail);
+  const studentCachePrefix = buildCacheKey("students", user?.libraryId || "default");
+  const seatGridCachePrefix = buildCacheKey("seat-grid", user?.libraryId || "default");
 
   const loadData = async (activeFilters = filters) => {
     setError("");
@@ -485,6 +488,11 @@ export default function StudentsPage() {
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     const nextValue = name === "phone" || name === "parentPhone" ? getTenDigitPhone(value) : value;
+
+    if (studentFormError) {
+      setStudentFormError("");
+    }
+
     setForm((current) => {
       const nextForm = { ...current, [name]: nextValue };
 
@@ -499,6 +507,7 @@ export default function StudentsPage() {
   const resetForm = () => {
     setForm(createInitialForm());
     setEditingId("");
+    setStudentFormError("");
   };
 
   const openStudentForm = () => {
@@ -563,6 +572,7 @@ export default function StudentsPage() {
   };
 
   const handleEdit = (student) => {
+    setStudentFormError("");
     setEditingId(student._id);
     setForm({
       name: student.name || "",
@@ -590,27 +600,36 @@ export default function StudentsPage() {
     setSubmitting(true);
     setError("");
     setSuccess("");
+    setStudentFormError("");
 
     if (!isTenDigitPhone(form.phone)) {
-      setError("Student phone number must be exactly 10 digits.");
+      const message = "Student phone number must be exactly 10 digits.";
+      setStudentFormError(message);
+      setError(message);
       setSubmitting(false);
       return;
     }
 
     if (form.parentPhone && !isTenDigitPhone(form.parentPhone)) {
-      setError("Parent phone number must be exactly 10 digits.");
+      const message = "Parent phone number must be exactly 10 digits.";
+      setStudentFormError(message);
+      setError(message);
       setSubmitting(false);
       return;
     }
 
     if (!form.joinedDate) {
-      setError("Joining date is required.");
+      const message = "Joining date is required.";
+      setStudentFormError(message);
+      setError(message);
       setSubmitting(false);
       return;
     }
 
     if (!form.hallName.trim()) {
-      setError("Hall name is required.");
+      const message = "Hall name is required.";
+      setStudentFormError(message);
+      setError(message);
       setSubmitting(false);
       return;
     }
@@ -646,11 +665,15 @@ export default function StudentsPage() {
         setSuccess("Student added successfully.");
       }
 
+      removeCachedValuesByPrefix(studentCachePrefix);
+      removeCachedValuesByPrefix(seatGridCachePrefix);
       resetForm();
       setShowStudentForm(false);
       loadData();
     } catch (submitError) {
-      setError(getErrorMessage(submitError));
+      const message = getErrorMessage(submitError);
+      setStudentFormError(message);
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -684,6 +707,8 @@ export default function StudentsPage() {
     try {
       await apiRequest(`/students/${archiveTarget._id}`, { method: "DELETE", token });
       setSuccess("Student moved to former members. Seat is now vacant.");
+      removeCachedValuesByPrefix(studentCachePrefix);
+      removeCachedValuesByPrefix(seatGridCachePrefix);
       setArchiveTarget(null);
       setViewingStudent(null);
       await Promise.all([loadData(), loadFormerMembers()]);
@@ -1280,6 +1305,12 @@ export default function StudentsPage() {
         title={editingId ? "Edit Student" : "Add Student"}
       >
         <form className="grid gap-4" onSubmit={handleSubmit}>
+          {studentFormError ? (
+            <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-extrabold text-rose-700">
+              {studentFormError}
+            </div>
+          ) : null}
+
           <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div className="grid gap-2">
               <label className="font-semibold text-slate-600" htmlFor="student-name">Name</label>

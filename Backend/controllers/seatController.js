@@ -24,6 +24,36 @@ const getDaysRemaining = (paidTill) => {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 };
 
+const getOccupiedSeatCount = (students) => {
+  const occupiedSeats = new Set(
+    students.map((student) => `${student.hallName}:${student.seatNumber}`)
+  );
+
+  return occupiedSeats.size;
+};
+
+const groupStudentsBySeat = (students) => {
+  const studentMap = new Map();
+
+  students.forEach((student) => {
+    const seatStudents = studentMap.get(student.seatNumber) || [];
+    seatStudents.push(student);
+    studentMap.set(student.seatNumber, seatStudents);
+  });
+
+  return studentMap;
+};
+
+const serializeGridStudent = (student) => ({
+  id: student._id,
+  memberId: student.memberId,
+  name: student.name,
+  shift: student.shift,
+  status: student.status,
+  duesState: getDuesState(student),
+  daysRemaining: getDaysRemaining(student.paidTill)
+});
+
 const ensureHallCanHoldSeat = async (libraryId, hallName, seatNumber) => {
   const hall = await Hall.findOne({ libraryId, name: hallName });
 
@@ -111,14 +141,17 @@ exports.updateHall = async (req, res) => {
         return res.status(400).json({ msg: "totalSeats must be a positive number" });
       }
 
-      const occupiedCount = await Student.countDocuments({
+      const highestOccupiedSeat = await Student.findOne({
         libraryId: req.user.libraryId,
         hallName: originalHallName
-      });
+      })
+        .sort({ seatNumber: -1 })
+        .select("seatNumber")
+        .lean();
 
-      if (numericTotalSeats < occupiedCount) {
+      if (highestOccupiedSeat && numericTotalSeats < highestOccupiedSeat.seatNumber) {
         return res.status(400).json({
-          msg: "totalSeats cannot be less than the number of occupied seats"
+          msg: "totalSeats cannot be less than the highest assigned seat number"
         });
       }
 
@@ -215,7 +248,7 @@ exports.getSeatGrid = async (req, res) => {
     }).sort({ hallName: 1, seatNumber: 1 });
 
     const totalSeats = halls.reduce((sum, hall) => sum + hall.totalSeats, 0);
-    const filledSeats = allStudents.length;
+    const filledSeats = getOccupiedSeatCount(allStudents);
 
     if (!selectedHall) {
       return res.json({
@@ -235,39 +268,52 @@ exports.getSeatGrid = async (req, res) => {
       (student) => student.hallName === selectedHall.name
     );
 
-    const studentMap = new Map(
-      selectedStudents.map((student) => [student.seatNumber, student])
-    );
+    const studentMap = groupStudentsBySeat(selectedStudents);
 
     const normalizedSearch = search ? search.trim().toLowerCase() : "";
     const seats = [];
 
     for (let seatNumber = 1; seatNumber <= selectedHall.totalSeats; seatNumber += 1) {
-      const student = studentMap.get(seatNumber) || null;
-      const occupancyStatus = student ? "OCCUPIED" : "VACANT";
-      const duesState = student ? getDuesState(student) : null;
+      const seatStudents = studentMap.get(seatNumber) || [];
+      const occupancyStatus = seatStudents.length ? "OCCUPIED" : "VACANT";
+      let visibleStudents = seatStudents;
 
       if (status !== "ALL" && occupancyStatus !== status.toUpperCase()) {
         continue;
       }
 
-      if (shift !== "ALL" && student && student.shift !== shift.toUpperCase()) {
-        continue;
+      if (shift !== "ALL" && seatStudents.length) {
+        visibleStudents = visibleStudents.filter(
+          (student) => student.shift === shift.toUpperCase()
+        );
+
+        if (!visibleStudents.length) {
+          continue;
+        }
       }
 
       if (dues !== "ALL") {
         if (dues.toUpperCase() === "TRIAL") {
-          if (!student || student.plan.toUpperCase() !== "TRIAL") {
-            continue;
-          }
-        } else if (!student || duesState !== dues.toUpperCase()) {
+          visibleStudents = visibleStudents.filter(
+            (student) => student.plan.toUpperCase() === "TRIAL"
+          );
+        } else {
+          visibleStudents = visibleStudents.filter(
+            (student) => getDuesState(student) === dues.toUpperCase()
+          );
+        }
+
+        if (!visibleStudents.length) {
           continue;
         }
       }
 
       if (normalizedSearch) {
-        const searchText = student
-          ? `${student.name} ${student.memberId} ${student.seatNumber}`.toLowerCase()
+        const searchText = visibleStudents.length
+          ? visibleStudents
+              .map((student) => `${student.name} ${student.memberId} ${student.seatNumber}`)
+              .join(" ")
+              .toLowerCase()
           : `${seatNumber}`;
 
         if (!searchText.includes(normalizedSearch)) {
@@ -275,19 +321,15 @@ exports.getSeatGrid = async (req, res) => {
         }
       }
 
+      const serializedStudents = visibleStudents.map(serializeGridStudent);
+      const primaryStudent = serializedStudents[0] || null;
+
       seats.push({
         seatNumber,
         hallName: selectedHall.name,
         occupancyStatus,
-        student: student ? {
-          id: student._id,
-          memberId: student.memberId,
-          name: student.name,
-          shift: student.shift,
-          status: student.status,
-          duesState,
-          daysRemaining: getDaysRemaining(student.paidTill)
-        } : null
+        student: primaryStudent,
+        students: serializedStudents
       });
     }
 
