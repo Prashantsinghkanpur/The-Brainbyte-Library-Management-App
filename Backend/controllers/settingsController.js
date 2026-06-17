@@ -1318,7 +1318,10 @@ exports.getPublicSeatSnapshot = async (req, res) => {
     }).sort({ hallName: 1, seatNumber: 1 });
 
     const totalSeats = halls.reduce((sum, hall) => sum + Number(hall.totalSeats || 0), 0);
-    const filledSeats = allStudents.length;
+    const occupiedSeatCount = new Set(
+      allStudents.map((student) => `${student.hallName}:${student.seatNumber}`)
+    ).size;
+    const filledSeats = occupiedSeatCount;
 
     if (!selectedHall) {
       return res.json(
@@ -1336,29 +1339,16 @@ exports.getPublicSeatSnapshot = async (req, res) => {
       );
     }
 
-    const selectedStudents = allStudents.filter((s) => s.hallName === selectedHall.name);
-    const studentMap = new Map(selectedStudents.map((s) => [s.seatNumber, s]));
-
-    const getDuesState = (student) => {
-      if (!student?.paidTill) return "UNPAID";
-      const endDate = new Date(student.paidTill);
-      endDate.setHours(23, 59, 59, 999);
-      return endDate >= new Date() ? "PAID" : "UNPAID";
-    };
-
-    const getDaysRemaining = (paidTill) => {
-      if (!paidTill) return 0;
-      const target = new Date(paidTill);
-      target.setHours(23, 59, 59, 999);
-      const diffMs = target.getTime() - Date.now();
-      return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-    };
+    const occupiedSeatNumbers = new Set(
+      allStudents
+        .filter((student) => student.hallName === selectedHall.name)
+        .map((student) => student.seatNumber)
+    );
 
     const vacantSeats = [];
 
     for (let seatNumber = 1; seatNumber <= selectedHall.totalSeats; seatNumber += 1) {
-      const student = studentMap.get(seatNumber) || null;
-      if (student) {
+      if (occupiedSeatNumbers.has(seatNumber)) {
         continue;
       }
 

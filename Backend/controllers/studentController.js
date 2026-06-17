@@ -74,6 +74,23 @@ const getNextMemberId = async (libraryId) => {
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const getDuplicateStudentMessage = (err) => {
+  if (err?.keyPattern?.memberId || err?.keyValue?.memberId) {
+    return "Member ID already exists. Please try adding the student again.";
+  }
+
+  if (
+    err?.keyPattern?.hallName ||
+    err?.keyPattern?.seatNumber ||
+    err?.keyValue?.hallName ||
+    err?.keyValue?.seatNumber
+  ) {
+    return "This seat can now be shared, but the database still has an old unique seat rule. Restart the backend once and try again.";
+  }
+
+  return "Student data must be unique per library";
+};
+
 // ADD STUDENT
 exports.addStudent = async (req, res) => {
   const User = require("../models/User");
@@ -163,16 +180,6 @@ exports.addStudent = async (req, res) => {
     const normalizedHallName = hallName.trim();
     const normalizedShift = shift ? shift.toUpperCase() : "FULL_DAY";
 
-    const existingSeat = await Student.findOne({
-      libraryId: req.user.libraryId,
-      hallName: normalizedHallName,
-      seatNumber: numericSeatNumber
-    });
-
-    if (existingSeat) {
-      return res.status(409).json({ msg: "Seat number is already assigned" });
-    }
-
     await ensureHallCapacity(req.user.libraryId, normalizedHallName, numericSeatNumber);
 
     const student = await Student.create({
@@ -199,7 +206,7 @@ exports.addStudent = async (req, res) => {
     res.status(201).json(student);
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ msg: "Student data must be unique per library" });
+      return res.status(409).json({ msg: getDuplicateStudentMessage(err) });
     }
 
     res.status(500).json({ error: err.message });
@@ -512,17 +519,6 @@ exports.updateStudent = async (req, res) => {
         return res.status(400).json({ msg: "seatNumber must be a positive number" });
       }
 
-      const existingSeat = await Student.findOne({
-        _id: { $ne: student._id },
-        libraryId: req.user.libraryId,
-        hallName: nextHallName,
-        seatNumber: numericSeatNumber
-      });
-
-      if (existingSeat) {
-        return res.status(409).json({ msg: "Seat number is already assigned" });
-      }
-
       await ensureHallCapacity(req.user.libraryId, nextHallName, numericSeatNumber);
       student.seatNumber = numericSeatNumber;
     }
@@ -563,7 +559,7 @@ exports.updateStudent = async (req, res) => {
     res.json(student);
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ msg: "Student data must be unique per library" });
+      return res.status(409).json({ msg: getDuplicateStudentMessage(err) });
     }
 
     res.status(500).json({ error: err.message });

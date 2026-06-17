@@ -60,6 +60,14 @@ const getSeatDisplay = (hallName, seatNumber) => (
     : "Unallocated"
 );
 
+const getSeatStudents = (seat) => {
+  if (Array.isArray(seat?.students)) {
+    return seat.students;
+  }
+
+  return seat?.student ? [seat.student] : [];
+};
+
 const getSeatOccupancyLabel = (paidTill) => {
   if (!paidTill) return { text: "No paid date added", tone: "slate" };
 
@@ -360,8 +368,8 @@ export default function SeatsPage() {
     setViewingStudent(null);
   };
 
-  const handleSeatOpenProfile = async (seat) => {
-    if (!seat?.student?.id) return;
+  const handleSeatOpenProfile = async (seat, selectedStudent = seat?.student) => {
+    if (!selectedStudent?.id) return;
 
     const requestId = activeStudentRequestRef.current + 1;
     activeStudentRequestRef.current = requestId;
@@ -371,7 +379,7 @@ export default function SeatsPage() {
     setLoadingStudentDetail(true);
 
     try {
-      const studentDetail = await apiRequest(`/students/${seat.student.id}`, { token });
+      const studentDetail = await apiRequest(`/students/${selectedStudent.id}`, { token });
 
       if (activeStudentRequestRef.current !== requestId) {
         return;
@@ -693,62 +701,103 @@ export default function SeatsPage() {
                     </div>
                   </article>
                 ))
-              : gridData.seats.map((seat) => (
-                  <article
-                    className={`relative grid min-h-[11.5rem] content-start rounded-[1.15rem] border p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem] ${
-                      seat.student ? "cursor-pointer border-[#cfe1e8] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,184,198,0.22)]" : "border-[#d9e8ee] bg-white/90"
-                    }`}
-                    key={`${seat.hallName}-${seat.seatNumber}`}
-                    onClick={seat.student ? () => handleSeatOpenProfile(seat) : undefined}
-                    onKeyDown={seat.student ? (event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleSeatOpenProfile(seat);
-                      }
-                    } : undefined}
-                    role={seat.student ? "button" : undefined}
-                    tabIndex={seat.student ? 0 : undefined}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-[0.95rem] font-black text-slate-900 min-[380px]:text-[1.05rem] sm:text-xl">
-                        <span
-                          className={`h-2 w-2 rounded-full min-[380px]:h-2.5 min-[380px]:w-2.5 ${
-                            seat.student
-                              ? seat.student.duesState === "PAID"
-                                ? "bg-teal-500"
-                                : "bg-rose-500"
-                              : "bg-emerald-500"
-                          }`}
-                        />
-                        {seat.seatNumber}
-                      </span>
-                      <SeatBadge student={seat.student} />
-                    </div>
+              : gridData.seats.map((seat) => {
+                  const seatStudents = getSeatStudents(seat);
+                  const primaryStudent = seatStudents[0] || null;
+                  const hasStudents = seatStudents.length > 0;
+                  const hasMultipleStudents = seatStudents.length > 1;
 
-                    {seat.student ? (
-                      <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
-                        <div className="grid h-14 w-14 place-items-center rounded-full border-[3px] border-yellow-300 bg-sky-600 text-[1.5rem] font-black text-white shadow-[0_10px_24px_rgba(14,116,144,0.22)] min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-[1.7rem] sm:h-20 sm:w-20 sm:text-[2rem]">
-                          {getSeatInitials(seat.student.name)}
-                        </div>
-                        <strong className="mt-3 block min-w-0 break-words text-[0.92rem] font-black uppercase leading-tight text-slate-950 min-[380px]:mt-4 min-[380px]:text-[1.02rem] sm:mt-5 sm:text-[1.2rem]">
-                          {seat.student.name}
-                        </strong>
-                        <span className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d3e5e8] bg-[#f8fdfd] px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-teal-700 min-[380px]:mt-4 min-[380px]:px-3 min-[380px]:py-1.5 min-[380px]:text-[0.72rem]">
-                          {getSeatShiftLabel(seat.student.shift)}
+                  return (
+                    <article
+                      className={`relative grid min-h-[11.5rem] content-start rounded-[1.15rem] border p-3 shadow-[0_12px_24px_rgba(148,184,198,0.18)] min-[380px]:min-h-[13rem] min-[380px]:rounded-[1.35rem] min-[380px]:p-4 sm:min-h-[15.5rem] sm:rounded-[1.55rem] ${
+                        hasStudents ? "border-[#cfe1e8] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,184,198,0.22)]" : "border-[#d9e8ee] bg-white/90"
+                      } ${hasStudents && !hasMultipleStudents ? "cursor-pointer" : ""}`}
+                      key={`${seat.hallName}-${seat.seatNumber}`}
+                      onClick={hasStudents && !hasMultipleStudents ? () => handleSeatOpenProfile(seat, primaryStudent) : undefined}
+                      onKeyDown={hasStudents && !hasMultipleStudents ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSeatOpenProfile(seat, primaryStudent);
+                        }
+                      } : undefined}
+                      role={hasStudents && !hasMultipleStudents ? "button" : undefined}
+                      tabIndex={hasStudents && !hasMultipleStudents ? 0 : undefined}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="inline-flex items-center gap-1.5 text-[0.95rem] font-black text-slate-900 min-[380px]:text-[1.05rem] sm:text-xl">
+                          <span
+                            className={`h-2 w-2 rounded-full min-[380px]:h-2.5 min-[380px]:w-2.5 ${
+                              primaryStudent
+                                ? primaryStudent.duesState === "PAID"
+                                  ? "bg-teal-500"
+                                  : "bg-rose-500"
+                                : "bg-emerald-500"
+                            }`}
+                          />
+                          {seat.seatNumber}
                         </span>
+                        {hasMultipleStudents ? (
+                          <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-indigo-700 min-[380px]:text-[0.7rem]">
+                            {seatStudents.length} students
+                          </span>
+                        ) : (
+                          <SeatBadge student={primaryStudent} />
+                        )}
                       </div>
-                    ) : (
-                      <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
-                        <div className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-[#d9e2e8] bg-white text-4xl font-thin leading-none text-slate-400 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-5xl sm:h-20 sm:w-20">
-                          +
+
+                      {hasStudents ? (
+                        <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
+                          <div className="grid h-14 w-14 place-items-center rounded-full border-[3px] border-yellow-300 bg-sky-600 text-[1.5rem] font-black text-white shadow-[0_10px_24px_rgba(14,116,144,0.22)] min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-[1.7rem] sm:h-20 sm:w-20 sm:text-[2rem]">
+                            {hasMultipleStudents ? seatStudents.length : getSeatInitials(primaryStudent.name)}
+                          </div>
+
+                          {hasMultipleStudents ? (
+                            <div className="mt-3 grid w-full gap-2 min-[380px]:mt-4">
+                              {seatStudents.slice(0, 3).map((student) => (
+                                <button
+                                  className="grid rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:border-teal-200 hover:bg-teal-50"
+                                  key={student.id}
+                                  onClick={() => handleSeatOpenProfile(seat, student)}
+                                  type="button"
+                                >
+                                  <strong className="truncate text-[0.76rem] font-black uppercase leading-tight text-slate-950 min-[380px]:text-[0.84rem]">
+                                    {student.name}
+                                  </strong>
+                                  <span className="mt-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-teal-700 min-[380px]:text-[0.68rem]">
+                                    {getSeatShiftLabel(student.shift)}
+                                  </span>
+                                </button>
+                              ))}
+                              {seatStudents.length > 3 ? (
+                                <span className="text-xs font-extrabold text-slate-500">
+                                  +{seatStudents.length - 3} more
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <>
+                              <strong className="mt-3 block min-w-0 break-words text-[0.92rem] font-black uppercase leading-tight text-slate-950 min-[380px]:mt-4 min-[380px]:text-[1.02rem] sm:mt-5 sm:text-[1.2rem]">
+                                {primaryStudent.name}
+                              </strong>
+                              <span className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d3e5e8] bg-[#f8fdfd] px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.08em] text-teal-700 min-[380px]:mt-4 min-[380px]:px-3 min-[380px]:py-1.5 min-[380px]:text-[0.72rem]">
+                                {getSeatShiftLabel(primaryStudent.shift)}
+                              </span>
+                            </>
+                          )}
                         </div>
-                        <strong className="mt-4 block text-[0.72rem] font-black uppercase tracking-[0.16em] text-slate-400 min-[380px]:mt-5 min-[380px]:text-sm sm:mt-7 sm:text-base">
-                          Available
-                        </strong>
-                      </div>
-                    )}
-                  </article>
-                ))}
+                      ) : (
+                        <div className="mt-3 grid flex-1 content-center justify-items-center text-center min-[380px]:mt-4">
+                          <div className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-[#d9e2e8] bg-white text-4xl font-thin leading-none text-slate-400 min-[380px]:h-16 min-[380px]:w-16 min-[380px]:text-5xl sm:h-20 sm:w-20">
+                            +
+                          </div>
+                          <strong className="mt-4 block text-[0.72rem] font-black uppercase tracking-[0.16em] text-slate-400 min-[380px]:mt-5 min-[380px]:text-sm sm:mt-7 sm:text-base">
+                            Available
+                          </strong>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
           </div>
         </div>
       </section>
